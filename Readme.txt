@@ -1,5 +1,5 @@
         Casa FacilePro
-            Versione v.4.0
+            Versione v.4.3
             Funzionalità principali:
             • Inserimento, modifica e cancellazione di spese ed entrate
             • Gestione categorie personalizzate
