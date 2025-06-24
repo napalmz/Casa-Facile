@@ -2,6 +2,7 @@
 ![Linux Support](https://img.shields.io/badge/Linux-✔️-yellow?logo=linux)
 
 
+
 Casa FacilePro
             Versione v.4.3
             Funzionalità principali:
