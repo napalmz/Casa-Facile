@@ -5,7 +5,7 @@
 
                Casa Facile Pro
                
-                Versione v. 4.3
+                Versione v. 4.5
                 
                 Funzionalità principali:
                 
@@ -14,9 +14,9 @@
                 • Ricorrenze (spese/entrate ripetute)
                 • Esportazione dettagliata giorno/mese/anno/utenze (Formato stampabile)
                 • Statistiche giornaliere, mensili, annuali e totali e analisi categorie
-                • Backup, import/export databases, Rubrica personale , Gestione utenze ...
-              
-                 © 2025 Casa Facile Pro Tutti i diritti riservati - Sviluppo Python/Tkinter, 2023-2025
+                • Backup, import/export databases, Rubrica personale , Gestione utenze 
+                • Time Machine , Cerca Spese
+                 © 2025 Casa Facile Pro Tutti i diritti M.I.T riservati - Sviluppo Python/Tkinter, 2023-2025
               
                 • Usa i pulsanti in alto per scegliere la modalità di visualizzazione delle statistiche (Giorno, Mese, Anno, Totali).
                 • Per esportare,visualizzare,stampare  le statistiche, usa 'Estrai'.
