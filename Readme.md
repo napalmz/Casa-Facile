@@ -1,7 +1,8 @@
 ![Language](https://img.shields.io/badge/language-Python-F7DF1E?logo=python&logoColor=black) ![Repo Size](https://img.shields.io/github/repo-size/Renato-4132/Casa-Facile) ![Windows Support](https://img.shields.io/badge/Windows-✔️-blue?logo=windows) ![macOS Support](https://img.shields.io/badge/macOS-✔️-lightgrey?logo=apple)
 ![Linux Support](https://img.shields.io/badge/Linux-✔️-yellow?logo=linux)
 
-![Schermata del 2025-06-25 08-20-44](https://github.com/user-attachments/assets/31dbf777-6334-4d8c-83af-d62501a4d650)
+![Schermata del 2025-06-26 16-41-40](https://github.com/user-attachments/assets/c4347645-53c4-4ebd-ba82-6ffe44cfdf67)
+
 
                Casa Facile Pro
                
