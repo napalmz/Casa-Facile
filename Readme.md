@@ -8,7 +8,7 @@
 
                Casa Facile Pro
                
-                Versione v. 4.7
+                Versione v. 4.8
                 
                 Funzionalità principali:
                 
