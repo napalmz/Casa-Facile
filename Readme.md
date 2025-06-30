@@ -9,7 +9,7 @@
 
                Casa Facile Pro
                
-                Versione v. 4.8
+                Versione v. 4.9
                 
                 Funzionalità principali:
                 
@@ -31,10 +31,10 @@
                  
                  Su Linux:
                   Apri il terminale e digita:
-                  sudo apt install tkcalendar python3-psutil python3-urllib3
-                   In alternativa puoi usare i pacchetti python pip 'pip install tkcalendar psutil urllib3
+                  sudo apt install tkcalendar python3-psutil
+                   In alternativa puoi usare i pacchetti python pip 'pip install tkcalendar psutil
                    
                  Su Windows:
                    Apri il terminale (Prompt dei comandi) e digita:
-                   py -m pip install tkcalendar psutil urllib3 win32print win32api win32con
+                   py -m pip install tkcalendar psutil win32print win32api win32con
                    Assicurati di installare Python, psutil tkcalendar win32print win32api win32con prima di avviare il programma.
