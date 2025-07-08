@@ -1,9 +1,10 @@
 ![Language](https://img.shields.io/badge/language-Python-F7DF1E?logo=python&logoColor=black) ![Repo Size](https://img.shields.io/github/repo-size/Renato-4132/Casa-Facile) ![Windows Support](https://img.shields.io/badge/Windows-✔️-blue?logo=windows) ![macOS Support](https://img.shields.io/badge/macOS-✔️-lightgrey?logo=apple)
 ![Linux Support](https://img.shields.io/badge/Linux-✔️-yellow?logo=linux)
 
+![a](https://github.com/user-attachments/assets/cb42725b-d8b0-4648-bf7e-78896b8005a4)
 
 
-![Main](https://github.com/user-attachments/assets/880be687-2cc1-418a-8277-0b814a2b8941)
+
 
 
 
@@ -18,6 +19,8 @@
                 • Ricorrenze (spese/entrate ripetute)
                 • Esportazione dettagliata giorno/mese/anno/utenze (Formato stampabile)
                 • Statistiche giornaliere, mensili, annuali e totali e analisi categorie
+                • Importazione da carta di credito o c/c
+                • Report Predict fine anno
                 • Backup, import/export databases, Rubrica personale , Gestione utenze 
                 • Time Machine , Cerca Spese
                  © 2025 Casa Facile Pro Tutti i diritti M.I.T riservati - Sviluppo Python/Tkinter, 2023-2025
