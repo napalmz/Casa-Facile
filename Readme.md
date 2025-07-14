@@ -12,7 +12,7 @@ https://renato-4132.github.io/Casa-Facile/
 
                Casa Facile Pro
                
-                Versione v. 5.5
+                Versione v. 5.7
                 
                 Funzionalità principali:
                 
@@ -24,7 +24,7 @@ https://renato-4132.github.io/Casa-Facile/
                 • Importazione da carta di credito o c/c
                 • Report Predict fine anno
                 • Backup, import/export databases, Rubrica personale , Gestione utenze 
-                • Time Machine , Cerca Spese
+                • Time Machine , Cerca Spese ,web server
                  © 2025 Casa Facile Pro Tutti i diritti M.I.T riservati - Sviluppo Python/Tkinter, 2023-2025
               
                 • Usa i pulsanti in alto per scegliere la modalità di visualizzazione delle statistiche (Giorno, Mese, Anno, Totali).
