@@ -13,22 +13,33 @@ Versione v. 5.8
 Funzionalità principali:
                 
 • Inserimento, modifica e cancellazione di spese ed entrate per categoria 
+
 • Gestione categorie personalizzate
+
 • Ricorrenze (spese/entrate ripetute)
+
 • Esportazione dettagliata giorno/mese/anno/utenze (Formato stampabile)
+
 • Statistiche giornaliere, mensili, annuali e totali e analisi categorie
+
 • Importazione da carta di credito o c/c
+
 • Report Predict fine anno
+
 • Backup, import/export databases, Rubrica personale , Gestione utenze 
+
 • Time Machine , Cerca Spese ,
   web server
 
 © 2025 Casa Facile Pro Tutti i diritti M.I.T riservati - Sviluppo Python/Tkinter, 2023-2025
               
 • Usa i pulsanti in alto per scegliere la modalità di visualizzazione delle statistiche (Giorno, Mese, Anno, Totali).
+
 • Per esportare,visualizzare,
 stampare  le statistiche, usa 'Estrai'.
+
 • Calendario interattivo con caselle colorate.
+
 • Questo programma si basa su Python. Puoi scaricare Python dal sito ufficiale: 
 
 https://www.python.org/downloads/
