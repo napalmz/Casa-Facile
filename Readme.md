@@ -3,13 +3,14 @@
 
 https://renato-4132.github.io/Casa-Facile/
 
+helpcasafacilepro@gmail.com
 
 ![Main](https://github.com/user-attachments/assets/ce6c0eaa-ff16-40ec-be1b-89a2754cd5d5)
 
 
                Casa Facile Pro
                
-                Versione v. 5.7
+                Versione v. 5.8
                 
                 Funzionalità principali:
                 
