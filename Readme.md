@@ -54,4 +54,3 @@ In alternativa puoi usare i pacchetti python pip 'pip install tkcalendar psutil
 Su Windows:
 Apri il terminale (Prompt dei comandi) e digita:
 py -m pip install tkcalendar psutil win32print win32api win32con
-Assicurati di installare Python, psutil tkcalendar win32print win32api win32con prima di avviare il programma.
