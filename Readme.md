@@ -45,6 +45,7 @@ stampare  le statistiche, usa 'Estrai'.
 https://www.python.org/downloads/
 
 Installazione Python su windows
+
 Scarica l'ultima versione di Python 3 (assicurati che sia Python 3.8 o superiore). Scegli l'installer appropriato per il tuo sistema (es. "Windows installer (64-bit)").
 Esegui il file .exe scaricato. MOLTO IMPORTANTE: Nella prima schermata dell'installazione, assicurati di spuntare la casella "Add Python X.X to PATH" (dove X.X è la versione di Python). Questo è fondamentale per poter eseguire l'applicazione da qualsiasi posizione.
 
