@@ -76,10 +76,10 @@ _"Casa Facile Pro" è un'applicazione desktop sviluppata in Python con Tkinter, 
   ```
 
 ---
-1. **Scarica il programma da GitHub:** [https://github.com/Renato-4132/Casa-Facile](https://github.com/Renato-4132/Casa-Facile/blob/main/Casa%20Facile.pyw)
+1. **Scarica il programma da GitHub:** [https://github.com/Renato-4132/Casa-Facile](https://github.com/Renato-4132/Casa-Facile/raw/main/Casa%20Facile.pyw)
 2. **Crea una cartella sul desktop** con un nome a tua scelta.
 3. **Copia il file** all’interno della cartella e avvia `Casa Facile.pyw`
-   (con doppio clic o da terminale).
+   (con doppio click o da terminale).
 4. **Alla prima esecuzione,** verranno creati i database e installate le dipendenze.
 
 ---
