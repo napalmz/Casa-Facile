@@ -64,6 +64,38 @@
 
         <main class="w-full container mx-auto">
 
+            <!-- Sezione Installazione Python e Dipendenze -->
+            <section class="section-card">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">📝 Installazione Python e Dipendenze</h2>
+                <ul class="list-disc list-inside text-gray-700 mt-4 space-y-2">
+                    <li>
+                        <strong>Questo programma si basa su Python.</strong> Puoi scaricare Python dal sito ufficiale:<br>
+                        <a href="https://www.python.org/downloads/" class="text-indigo-600 underline" target="_blank">https://www.python.org/downloads/</a>
+                    </li>
+                    <li>
+                        <strong>Installazione Python su Windows:</strong><br>
+                        Scarica l'ultima versione di Python 3 (<span class="font-semibold">assicurati che sia Python 3.8 o superiore</span>). Scegli l'installer appropriato per il tuo sistema (es. "Windows installer (64-bit)").<br>
+                        Esegui il file <code>.exe</code> scaricato.<br>
+                        <span class="font-bold text-red-600">MOLTO IMPORTANTE:</span> Nella prima schermata dell'installazione, assicurati di spuntare la casella <span class="font-bold text-blue-700">"Add Python X.X to PATH"</span> (dove X.X è la versione di Python). Questo è fondamentale per poter eseguire l'applicazione da qualsiasi posizione.<br>
+                        Clicca su "Install Now" e segui le istruzioni.
+                    </li>
+                    <li>
+                        <strong>I plugin pip python sono autoinstallanti, ma per buona promemoria, allego come installarli manualmente.</strong>
+                    </li>
+                    <li>
+                        <strong>Su Linux:</strong>
+                        <div class="code-block my-2">sudo apt install tkcalendar python3-psutil</div>
+                        In alternativa puoi usare i pacchetti python pip:
+                        <div class="code-block my-2">pip install tkcalendar psutil</div>
+                    </li>
+                    <li>
+                        <strong>Su Windows:</strong>
+                        Apri il terminale (Prompt dei comandi) e digita:
+                        <div class="code-block my-2">py -m pip install tkcalendar psutil win32print win32api win32con</div>
+                    </li>
+                </ul>
+            </section>
+
             <!-- Sezione Cos'è l'App -->
             <section class="section-card">
                 <h2 class="text-3xl font-bold text-gray-800 mb-6">💡 Cos'è "Casa Facile Pro"?</h2>
