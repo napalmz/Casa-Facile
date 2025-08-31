@@ -7,10 +7,6 @@ https://renato-4132.github.io/Casa-Facile/
 
 helpcasafacilepro@gmail.com
 
-Casa Facile Pro
-Versione v. 7.6
-
-
 # 🏡 Casa Facile Pro
 
 **La tua soluzione completa per la gestione delle finanze domestiche!**
@@ -19,16 +15,47 @@ _"Casa Facile Pro" è un'applicazione desktop sviluppata in Python con Tkinter, 
 
 ---
 
-## 📝 Installazione Python e Dipendenze
+## 🎁 Perché è gratuito?
+
+- ✅ Il codice è aperto: chiunque può usarlo.
+- ✅ Nessuna licenza da pagare.
+- ✅ Creato da comunità o enti no-profit.
+- ✅ Nessuna pubblicità né tracciamento.
+
+### 🌟 Cosa ci guadagni tu?
+- 💸 Zero costi — risparmi davvero.
+- 🙅‍♂️ Zero pubblicità — niente interruzioni fastidiose.
+- 🔧 Più controllo — sai cosa fa il programma.
+- 🌱 Cresce nel tempo — grazie a contributi liberi.
+
+---
+
+## 2. Requisiti di sistema
+
+- **Windows 10** o superiore
+- **Linux** (tutte le versioni supportate)
+- **Mac**
+- **Python 3.7** o successivo
+- **Librerie necessarie:** `python`, `tkcalendar`, `psutil`, `win32print`, `win32api`, `win32con`
+- **Stampante consigliata** per la funzione di stampa
+
+> Per utilizzare correttamente l’applicazione, è richiesta una risoluzione minima dello schermo di **1366×768 pixel**.  
+> Si consiglia l’uso su un monitor da almeno **15 pollici** per una migliore leggibilità.
+
+---
+
+## 3. Installazione e avvio
 
 - **Questo programma si basa su Python.**  
   Puoi scaricare Python dal sito ufficiale:  
   [https://www.python.org/downloads/](https://www.python.org/downloads/)
 
 - **Installazione Python su Windows:**  
-  Scarica l’ultima versione di Python 3 (**assicurati che sia Python 3.8 o superiore**). Scegli l’installer appropriato per il tuo sistema (es. "Windows installer (64-bit)").  
+  Scarica l’ultima versione di Python 3 (**assicurati che sia Python 3.8 o superiore**).  
+  Scegli l’installer appropriato per il tuo sistema (es. "Windows installer (64-bit)").  
   Esegui il file `.exe` scaricato.  
-  **MOLTO IMPORTANTE:** Nella prima schermata dell’installazione, assicurati di spuntare la casella **"Add Python X.X to PATH"** (dove X.X è la versione di Python). Questo è fondamentale per poter eseguire l’applicazione da qualsiasi posizione.  
+  **MOLTO IMPORTANTE:** Nella prima schermata dell’installazione, assicurati di spuntare la casella **"Add Python X.X to PATH"** (dove X.X è la versione di Python).  
+  Questo è fondamentale per poter eseguire l’applicazione da qualsiasi posizione.  
   Clicca su "Install Now" e segui le istruzioni.
 
 - **I plugin pip python sono autoinstallanti, ma per buona promemoria, allego come installarli manualmente.**
@@ -49,6 +76,15 @@ _"Casa Facile Pro" è un'applicazione desktop sviluppata in Python con Tkinter, 
   ```
 
 ---
+1. **Scarica il programma da GitHub:** [https://github.com/Renato-4132/Casa-Facile](https://github.com/Renato-4132/Casa-Facile/blob/main/Casa%20Facile.pyw)
+2. **Crea una cartella sul desktop** con un nome a tua scelta.
+3. **Copia il file** all’interno della cartella e avvia `Casa Facile.pyw`
+   (con doppio clic o da terminale).
+4. **Alla prima esecuzione,** verranno creati i database e installate le dipendenze.
+
+---
+
+
 
 ## 💡 Cos'è "Casa Facile Pro"?
 
