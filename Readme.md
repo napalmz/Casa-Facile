@@ -40,8 +40,8 @@ _"Casa Facile Pro" è un'applicazione desktop sviluppata in Python con Tkinter, 
 - **Librerie necessarie:** `python`, `tkcalendar`, `psutil`, `win32print`, `win32api`, `win32con`
 - **Stampante consigliata** per la funzione di stampa
 
-> Per utilizzare correttamente l’applicazione, è richiesta una risoluzione minima dello schermo di **1366×768 pixel**.  
-> Si consiglia l’uso su un monitor da almeno **15 pollici** per una migliore leggibilità.
+> Per utilizzare correttamente l’applicazione, è richiesta una risoluzione minima dello schermo di **1280×800 pixel**.  
+> Si consiglia l’uso su un monitor da almeno **14 pollici** per una migliore leggibilità.
 
 ---
 
@@ -52,7 +52,7 @@ _"Casa Facile Pro" è un'applicazione desktop sviluppata in Python con Tkinter, 
   [https://www.python.org/downloads/](https://www.python.org/downloads/)
 
 - **Installazione Python su Windows:**
-- Puoi usare l'installer oppure
+- Puoi usare l'installer AUTOMATICO .Zip oppure Manualmente:
 - Scaricare l’ultima versione di Python 3 (**assicurati che sia Python 3.8 o superiore**).  
   Scegli l’installer appropriato per il tuo sistema (es. "Windows installer (64-bit)").  
   Esegui il file `.exe` scaricato.  
