@@ -3,7 +3,8 @@
 
 https://renato-4132.github.io/Casa-Facile/
 
-![Schermata del 2025-08-30 14-29-25](https://github.com/user-attachments/assets/424b4116-a81a-4859-a0d1-61366af9fd82)
+![Main](https://github.com/user-attachments/assets/dea1ecbb-b355-443f-b769-72cd9ffaef0c)
+
 
 helpcasafacilepro@gmail.com
 
