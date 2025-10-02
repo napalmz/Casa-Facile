@@ -1,0 +1,19 @@
+services:
+  casa-facile:
+    build: .
+    image: casa-facile:latest
+    container_name: casa-facile
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Rome
+      # opzionale: abilita auth web (se esponi su internet, configura HTTPS a monte)
+      # - WEB_AUTHENTICATION=1
+      # - VNC_PASSWORD=yourpass
+    volumes:
+      - ./config:/config
+    ports:
+      - "3001:3000"   # noVNC in browser HTTP
+      - "3002:3001"   # noVNC in browser HTTPS
+      - "5901:5901"   # VNC client tradizionale
+    restart: unless-stopped
