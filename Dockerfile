@@ -1,6 +1,10 @@
 # Desktop web-native con VNC/noVNC
 FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie
 
+ARG APP_VERSION=unknown
+LABEL maintainer="napalmz <https://github.com/napalmz/Casa-Facile>"
+LABEL version="$APP_VERSION"
+
 RUN echo "**** update & base deps ****" && \
     apt-get update && apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
