@@ -76,7 +76,7 @@ current_folder = os.path.basename(os.getcwd())
 toll = 30 #Euro
 
 #Versione
-VERSION = "8.3"
+VERSION = "8.5"
 
 # ⏱️ Attiva/disattiva Timer Iconizza
 ICONIZZA_INATTIVITA = True
@@ -112,6 +112,8 @@ class CasaFacileWebHandler(BaseHTTPRequestHandler):
             return
         if path == "/":
             html = self.server.app.html_form()
+        elif path == "/gestione_categorie":
+            html = self.server.app.html_gestione_categorie() 
         elif path.startswith("/stats"):
             html = self.server.app.stats_mensili_html()
         elif path.startswith("/lista"):
@@ -150,7 +152,6 @@ class CasaFacileWebHandler(BaseHTTPRequestHandler):
         cookie = self.headers.get("Cookie", "")
         is_logged_in = "logged_in=true" in cookie
 
-        # 🔐 Login
         if path.startswith("/check_login"):
             content_len = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_len).decode()
@@ -200,15 +201,41 @@ class CasaFacileWebHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        if path == "/salva_categoria":
+            content_len = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_len).decode()
+            params = parse_qs(body)
+            operazione = params.get("operazione", [""])[0]
+            if operazione == "aggiungi":
+                self.server.app.add_categoria_web(params)
+            elif operazione == "modifica":
+                self.server.app.modifica_categoria_web(params)
+            self.server.app.carica_db_web()
+            self.server.app.refresh_gui()
+            self.send_response(303)
+            self.send_header("Location", "/gestione_categorie?status=success")
+            self.end_headers()
+            return
+            
+        if path == "/cancella_categoria":
+            content_len = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_len).decode()
+            params = parse_qs(body)
+            self.server.app.cancella_categoria_web(params)
+            self.server.app.carica_db_web()
+            self.server.app.refresh_gui()
+            self.send_response(303)
+            self.send_header("Location", "/gestione_categorie?status=deleted")
+            self.end_headers()
+            return
         if path == "/salva_modifica":
             content_len = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_len).decode()
             params = parse_qs(body)
-
             self.server.app.salva_modifica_voce(params)
             self.server.app.refresh_gui()
             self.send_response(303)
-            self.send_header("Location", "/lista")
+            self.send_header("Location", "/")
             self.end_headers()
             return
 
@@ -216,13 +243,12 @@ class CasaFacileWebHandler(BaseHTTPRequestHandler):
             content_len = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_len).decode()
             params = parse_qs(body)
-
             giorno = params.get("data", [""])[0]
             idx = int(params.get("idx", ["-1"])[0])
             self.server.app.cancella_voce_web(giorno, idx)
             self.server.app.refresh_gui()
             self.send_response(303)
-            self.send_header("Location", "/lista")
+            self.send_header("Location", "/")
             self.end_headers()
             return
 
@@ -240,7 +266,7 @@ class GestioneSpese(tk.Tk):
         self.withdraw()
         self.update_idletasks()
         
-        initial_width = 1200
+        initial_width = 1230
         initial_height = 620
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
@@ -260,7 +286,7 @@ class GestioneSpese(tk.Tk):
             return  # oppure self.destroy(); exit()
 
         self.resizable(True, True)
-        self.minsize(1200, 620)
+        self.minsize(1230, 620)
         self.lift()
         self.focus_force()
         self.after(250, self.deiconify)
@@ -289,6 +315,12 @@ class GestioneSpese(tk.Tk):
         menu_gestione.add_command(label="📋 Calcolatrice", accelerator="Ctrl+E", command=self.apri_calcolatrice)
         self.bind_all("<Control-e>", lambda e: self.apri_calcolatrice())
         menu_gestione.add_command(label="📋 Cancella Voci Bulk", command=self.apri_cancella_spese_treeview_unica)
+        menu_gestione.add_command(label="✖️ Salva e chiudi", accelerator="Ctrl+Q", command=self._on_close)
+        self.bind_all("<Control-q>", lambda e: 
+        self._on_close())
+        menu_gestione.add_separator()
+        menu_gestione.add_command(label="✖️ Riduci a icona",accelerator="Ctrl+X",command=self.iconify)
+        self.bind_all("<Control-x>", lambda e: self.iconify())
         
         # ──────────────── RICORRENZE ────────────────
         menu_ricorrenze = tk.Menu(barra_menu, tearoff=0)
@@ -424,6 +456,7 @@ class GestioneSpese(tk.Tk):
         style.configure("BlackFrame.TFrame", background="#2e2e2e")
         
         style.configure("Highlight.TCombobox", foreground="red")
+        style.configure('Border.TCombobox', fieldbackground='white', relief='solid', borderwidth=1) 
 
         style.configure("Timer.TLabel", foreground="gray", font=("Helvetica", 10, "bold"))
  
@@ -516,7 +549,7 @@ class GestioneSpese(tk.Tk):
         riepilogo_frame = ttk.Frame(cal_frame)
         riepilogo_frame.pack(fill=tk.X, padx=2, pady=(8, 8))
 
-        self.totalizzatore_mese_frame = ttk.LabelFrame(riepilogo_frame, text="⚙️ Riepilogo Mese corrente", style="RedBold.TLabelframe")
+        self.totalizzatore_mese_frame = ttk.LabelFrame(riepilogo_frame, text="⚙️ Riepilogo Mese Attuale", style="RedBold.TLabelframe")
         self.totalizzatore_mese_frame.pack(side="left", fill="both", expand=True, padx=(0, 4))
         self.totalizzatore_mese_frame.grid_columnconfigure(1, weight=1)
 
@@ -532,7 +565,7 @@ class GestioneSpese(tk.Tk):
         self.totalizzatore_mese_diff_label = ttk.Label(self.totalizzatore_mese_frame, text="0.00 €", foreground="blue", font=("Arial", 10, "bold"))
         self.totalizzatore_mese_diff_label.grid(row=2, column=1, sticky="e", padx=(0,6), pady=(2, 4))
 
-        self.totalizzatore_frame = ttk.LabelFrame(riepilogo_frame, text="⚙️ Riepilogo Anno corrente", style="RedBold.TLabelframe")
+        self.totalizzatore_frame = ttk.LabelFrame(riepilogo_frame, text="⚙️ Riepilogo Anno Attuale", style="RedBold.TLabelframe")
         self.totalizzatore_frame.pack(side="left", fill="both", expand=True, padx=(4, 0))
         self.totalizzatore_frame.grid_columnconfigure(1, weight=1)
 
@@ -548,7 +581,7 @@ class GestioneSpese(tk.Tk):
         self.totalizzatore_diff_label = ttk.Label(self.totalizzatore_frame, text="0.00 €", foreground="blue", font=("Arial", 10, "bold"))
         self.totalizzatore_diff_label.grid(row=2, column=1, sticky="e", padx=(0,6), pady=(2, 4))
 
-        self.spese_mese_frame = ttk.LabelFrame(cal_frame, text="Riepilogo mese per data", style="RedBold.TLabelframe")
+        self.spese_mese_frame = ttk.LabelFrame(cal_frame, text="Analisi Mese Attuale", style="RedBold.TLabelframe")
         self.spese_mese_frame.pack(fill=tk.BOTH, expand=False, padx=2, pady=(2,4))
         self.spese_mese_tree = ttk.Treeview(
             self.spese_mese_frame,
@@ -559,18 +592,18 @@ class GestioneSpese(tk.Tk):
         )
         self.spese_mese_tree.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
-        self.spese_mese_tree.bind("<Double-1>", self.on_spese_mese_tree_double_click) # Doppio click riepilogo mese corrente
+        self.spese_mese_tree.bind("<Double-1>", self.on_spese_mese_tree_double_click) 
         
         self.spese_mese_tree.heading("Data", text="Data")
         self.spese_mese_tree.heading("Categoria", text="Categoria")
         self.spese_mese_tree.heading("Descrizione", text="Descrizione")
         self.spese_mese_tree.heading("Importo", text="Importo (€)")
         self.spese_mese_tree.heading("Tipo", text="Tipo")
-        self.spese_mese_tree.column("Data", width=90, anchor="center")
-        self.spese_mese_tree.column("Categoria", width=100, anchor="center")
+        self.spese_mese_tree.column("Data", width=80, anchor="center")
+        self.spese_mese_tree.column("Categoria", width=120, anchor="center")
         self.spese_mese_tree.column("Descrizione", width=100, anchor="center")
-        self.spese_mese_tree.column("Importo", width=80, anchor="e")
-        self.spese_mese_tree.column("Tipo", width=60, anchor="center")
+        self.spese_mese_tree.column("Importo", width=82, anchor="e")
+        self.spese_mese_tree.column("Tipo", width=50, anchor="center")
         self.spese_mese_tree.tag_configure('entrata', foreground='green')
         self.spese_mese_tree.tag_configure('uscita', foreground='red')
         for col in self.spese_mese_tree["columns"]:
@@ -579,7 +612,7 @@ class GestioneSpese(tk.Tk):
         right_frame = ttk.Frame(main_frame)
         right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
   
-        stat_frame = ttk.LabelFrame(right_frame, text="⚙️ Statistiche Spese", style="RedBold.TLabelframe")
+        stat_frame = ttk.LabelFrame(right_frame, text="⚙️ Riepilogo Avanzato", style="RedBold.TLabelframe")
         stat_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=(8, 8))
 
         stat_frame.rowconfigure(3, weight=1)
@@ -649,7 +682,7 @@ class GestioneSpese(tk.Tk):
         self.stats_table.bind("<Double-1>", self.on_stats_table_double_click)
         self.stats_table.bind("<ButtonRelease-1>", self.on_table_click)
 
-        form_frame = ttk.LabelFrame(right_frame, text="⚙️ Inserisci/Modifica Spesa/Entrata", style="RedBold.TLabelframe")
+        form_frame = ttk.LabelFrame(right_frame, text="⚙️ Registra o Modifica Movimento", style="RedBold.TLabelframe")
         form_frame.pack(fill=tk.X, padx=2, pady=(8, 8))
         form_frame.grid_columnconfigure(1, weight=1)
 
@@ -745,8 +778,8 @@ class GestioneSpese(tk.Tk):
               return True  # consente campo vuoto
          import re
          # Imposta massimo
-         return len(nuovo_valore_2) <= 7 and re.match(r"^\d*[.,]?\d{0,2}$", nuovo_valore_2) is not None
-         
+         return len(nuovo_valore_2) <= 8 and re.match(r"^\d*[.,]?\d{0,2}$", nuovo_valore_2) is not None
+
         vcmd = form_frame.register(convalida_input)       
         self.imp_entry = ttk.Entry(importo_frame, width=12, validate="key", validatecommand=(vcmd, "%P")) #cat auto    
         self.imp_entry.pack(side=tk.LEFT)      
@@ -760,7 +793,7 @@ class GestioneSpese(tk.Tk):
         pannello_bottoni = tk.Frame(form_frame)
         pannello_bottoni.grid(row=row, column=1, columnspan=8, sticky="w", pady=4)
 
-        self.btn_aggiungi = ttk.Button(pannello_bottoni, text="💸 Aggiungi Spesa/Entrata", command=self.add_spesa, style="Verde.TButton")
+        self.btn_aggiungi = ttk.Button(pannello_bottoni, text="💸 Aggiungi Movimento", command=self.add_spesa, style="Verde.TButton")
         self.btn_aggiungi.pack(side="left", padx=4)
         self.btn_reset_form = ttk.Button(pannello_bottoni,text="↺",width=2,command=self.reset_form, style="Giallo.TButton")
         self.btn_reset_form.pack(side="left", padx=(4, 0))
@@ -801,14 +834,58 @@ class GestioneSpese(tk.Tk):
             takefocus=0
         )
         self.btn_tipo_spesa.pack(side=tk.LEFT, padx=8)
+        self.metodo_pagamento_var = tk.StringVar(value="") 
+        metodi = ["", "💰 Contanti", "🔄 RID/SDD", "🏦 Bonifico", "💎 C.Credito", "💳 C.Debito", ]
+        self.metodo_pagamento_combobox = ttk.Combobox(
+            importo_frame, 
+            textvariable=self.metodo_pagamento_var, 
+            values=metodi,
+            state="readonly",
+            style="Border.TCombobox",
+            width=10
+        )
+        self.metodo_pagamento_combobox.pack(side=tk.LEFT, padx=4) 
+        self.metodo_pagamento_combobox.bind("<<ComboboxSelected>>", self.aggiorna_descrizione_con_simbolo)
         row += 1
         self.lbl_tipo_percentuale = ttk.Label(importo_frame, text="", font=("Arial", 9, "bold"))
         self.lbl_tipo_percentuale.pack(side=tk.LEFT, padx=4)
         self.on_categoria_changed(manuale=False)
-        
         self.refresh_gui()
         self.after(1000, self.check_aggiornamento_con_api)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def aggiorna_descrizione_con_simbolo(self, event=None):
+        simboli_metodo = {
+            "💰 Contanti": "💰",
+            "🔄 RID/SDD": "🔄",
+            "💎 C.Credito": "💎",
+            "💳 C.Debito": "💳",
+            "🏦 Bonifico": "🏦"
+        }
+        desc_attuale = self.desc_entry.get().strip()
+        metodo_selezionato = self.metodo_pagamento_var.get()
+        desc_pulita = desc_attuale
+        simboli_possibili = list(simboli_metodo.values()) 
+        simbolo_trovato = None
+        for simbolo in simboli_possibili:
+            if desc_pulita.startswith(simbolo):
+                simbolo_trovato = simbolo
+                desc_pulita = desc_pulita[len(simbolo_trovato):].lstrip() 
+                break 
+        nuovo_simbolo = simboli_metodo.get(metodo_selezionato, '')
+        
+        if not desc_pulita and metodo_selezionato:
+            testo_base_da_inserire = metodo_selezionato
+        else:
+            testo_base_da_inserire = desc_pulita
+            
+        self.desc_entry.delete(0, tk.END)
+        if nuovo_simbolo:
+            nuova_desc = f"{nuovo_simbolo} {desc_pulita}".strip()
+            self.desc_entry.insert(0, nuova_desc)
+        else:
+            self.desc_entry.insert(0, desc_pulita)
+        self.desc_entry.icursor(tk.END)
 
     def mostra_categorie_popup(self):
         import datetime
@@ -831,7 +908,7 @@ class GestioneSpese(tk.Tk):
         main_frame = ttk.Frame(self.categorie_popup)
         main_frame.pack(padx=10, pady=10, fill="both", expand=True)
 
-        aggiungi_cat_frame = ttk.LabelFrame(main_frame, text="✅ Gestisci Categorie", style="RedBold.TLabelframe")
+        aggiungi_cat_frame = ttk.LabelFrame(main_frame, text="✅ Configurazione Categorie", style="RedBold.TLabelframe")
         aggiungi_cat_frame.pack(padx=5, pady=5, fill="both", expand=True)
         aggiungi_cat_frame.columnconfigure(1, weight=1)
 
@@ -848,7 +925,7 @@ class GestioneSpese(tk.Tk):
         self.entry_nuova_cat = ttk.Entry(
             aggiungi_cat_frame,
             textvariable=self.nuova_cat,
-            width=20,
+            width=22,
             validate="key",
             validatecommand=(vcmd_cat, "%P")
         )
@@ -880,7 +957,7 @@ class GestioneSpese(tk.Tk):
             textvariable=self.cat_mod_sel,
             values=sorted(self.categorie),
             state="readonly",
-            width=18
+            width=22
         )
         self.cat_mod_menu.grid(row=1, column=1, sticky="w", padx=2, pady=2)
         self.cat_mod_menu.bind("<<ComboboxSelected>>", lambda e: self.on_categoria_modifica_changed_popup())
@@ -1089,14 +1166,14 @@ class GestioneSpese(tk.Tk):
             
         self.ricorrenza_imp.trace_add("write", aggiorna_categoria_automatica_ricorrenza)
 
-        ric_frame = ttk.LabelFrame(self.ricorrenza_popup, text="🔄 Ripeti Spesa/Entrata", style="RedBold.TLabelframe")
+        ric_frame = ttk.LabelFrame(self.ricorrenza_popup, text="🔄 Pianificazione Ricorrenze", style="RedBold.TLabelframe")
         ric_frame.pack(padx=10, pady=10, fill="both", expand=True)
         
         style = ttk.Style()
         
         row = 0
         ttk.Label(ric_frame, text="🔍 Categoria:").grid(row=row, column=0, sticky="e", padx=2, pady=2)
-        self.ric_cat_menu = ttk.Combobox(ric_frame, textvariable=self.ricorrenza_cat_sel, values=sorted(self.categorie), state="readonly", width=15, font=("Arial", 11, "bold"))
+        self.ric_cat_menu = ttk.Combobox(ric_frame, textvariable=self.ricorrenza_cat_sel, values=sorted(self.categorie), state="readonly", width=22, font=("Arial", 11, "bold"))
         self.ric_cat_menu.grid(row=row, column=1, sticky="w", padx=2, pady=2)
         self.ric_cat_menu.bind("<<ComboboxSelected>>", on_ric_cat_selected)
         
@@ -2611,47 +2688,39 @@ class GestioneSpese(tk.Tk):
         ttk.Label(info_frame, text=info_text, font=("Arial", 10)).pack(side="left")
         ttk.Button(info_frame, text="❌ Chiudi", command=popup_movimenti.destroy, style='Giallo.TButton').pack(side="right", padx=5)
         popup_movimenti.bind("<Escape>", lambda e: popup_movimenti.destroy())
-
+        
     def add_spesa(self):
 
         if hasattr(self, 'ricorrenza_tipo') and self.ricorrenza_tipo.get() != "Nessuna":
             self.add_ricorrenza()
             return
-        
         data = self.data_spesa_var.get()
         cat = self.cat_sel.get()
         desc = self.desc_entry.get().strip()
-        
         try:
             imp = float(self.imp_entry.get().replace(",", "."))
         except ValueError:
             self.show_custom_warning("Errore", "Importo mancante o non valido.")
             return
-        
         tipo = self.tipo_spesa_var.get()
-        
         try:
             d = datetime.datetime.strptime(data, "%d-%m-%Y").date()
         except ValueError:
             self.show_custom_warning("Errore", "Formato data non valido.")
             return
-            
         if d not in self.spese:
             self.spese[d] = []
-            
         self.spese[d].append((cat, desc, imp, tipo))
         self.desc_entry.delete(0, tk.END)
         self.imp_entry.delete(0, tk.END)
-                
         self.save_db()
         self.reset_modifica_form()
         self.refresh_gui()
-        
         if not self.blocca_data_var.get():
             self.data_spesa_var.set(datetime.date.today().strftime("%d-%m-%Y"))
-            
         self.categoria_bloccata = False
         self.label_smartcat.config(text="🛠️ SmartCat attiva", foreground="red")
+        self.metodo_pagamento_var.set("")
 
     def mostra_lista_ricorrenze(self):
         def parse_data(data_str):
@@ -2811,6 +2880,13 @@ class GestioneSpese(tk.Tk):
         else:
             self.btn_tipo_spesa.state(["disabled"])
 
+    def _inserisci_importo_senza_validazione(self, imp_value):
+        self.imp_entry.config(validate="none") 
+        self.imp_entry.delete(0, tk.END)
+        self.imp_entry.insert(0, imp_value)
+        vcmd = self.imp_entry.cget('validatecommand')
+        self.imp_entry.config(validate="key", validatecommand=vcmd)
+
     def on_table_click(self, event):
         self.label_smartcat.config(text="🛠️ SmartCat disattiva", foreground="green")
         self.aggiorna_bottone_spese_simili(visibile=False)
@@ -2838,6 +2914,7 @@ class GestioneSpese(tk.Tk):
         self.desc_entry.insert(0, desc)
         self.imp_entry.delete(0, tk.END)
         self.imp_entry.insert(0, imp)
+        self.after(0, lambda: self._inserisci_importo_senza_validazione(imp))
         self.tipo_spesa_var.set(tipo)
         self.btn_tipo_spesa.config(text=tipo)
         self.btn_modifica["state"] = tk.NORMAL
@@ -2875,6 +2952,7 @@ class GestioneSpese(tk.Tk):
         self.desc_entry.delete(0, tk.END)
         self.imp_entry.delete(0, tk.END)
         self.cat_sel.set("Generica")
+        self.metodo_pagamento_var.set("")
         self.on_categoria_changed()
         self.set_tipo_spesa_editable(True)
         if not self.blocca_data_var.get():
@@ -2975,7 +3053,9 @@ class GestioneSpese(tk.Tk):
                 data_corrente = self.cal.selection_get()
             except Exception:
                 data_corrente = datetime.date.today()
-            self.stats_label.config(text=f"Statistiche giornaliere - {data_corrente.strftime('%d-%m-%Y')}")
+            
+            self.stats_label.config(text=f"Riepilogo Giornaliero - {data_corrente.strftime('%d-%m-%Y')}", foreground="purple",
+    font=("Arial", 10, "bold"))
 
             self.stats_table["displaycolumns"] = ("A", "B", "C", "D", "E", "F")
             self.stats_table.column("A", width=80, anchor="center")
@@ -2997,7 +3077,8 @@ class GestioneSpese(tk.Tk):
         elif mode == "mese":
             ref = self.stats_refdate
             monthname = self.get_month_name(ref.month)
-            self.stats_label.config(text=f"Statistiche mensili per {monthname} {ref.year}")
+            self.stats_label.config(text=f"Riepilogo Mensile {monthname} {ref.year}", foreground="navy",
+    font=("Arial", 10, "bold"))
             self.stats_table["displaycolumns"] = ("A","B","C")
             self.stats_table.column("A", width=300, anchor="w")
             self.stats_table.column("B", width=200, anchor="center")
@@ -3007,7 +3088,8 @@ class GestioneSpese(tk.Tk):
             self.stats_table.heading("C", text="Tipo")
         elif mode == "anno":
             ref = self.stats_refdate
-            self.stats_label.config(text=f"Statistiche annuali per {ref.year}")
+            self.stats_label.config(text=f"Riepilogo Annuale {ref.year}", foreground="forest green",
+    font=("Arial", 10, "bold"))
             self.stats_table["displaycolumns"] = ("A","B","C")
             self.stats_table.column("A", width=300, anchor="w")
             self.stats_table.column("B", width=200, anchor="center")
@@ -3016,7 +3098,8 @@ class GestioneSpese(tk.Tk):
             self.stats_table.heading("B", text="Totale Categoria (€)")
             self.stats_table.heading("C", text="Tipo")
         else:
-            self.stats_label.config(text="Totali per categoria")
+            self.stats_label.config(text="Riepilogo Categorie", foreground="firebrick",
+    font=("Arial", 10, "bold"))
             self.stats_table["displaycolumns"] = ("A","B","C")
             self.stats_table.column("A", width=300, anchor="w")
             self.stats_table.column("B", width=200, anchor="center")
@@ -3288,7 +3371,7 @@ class GestioneSpese(tk.Tk):
             sep = "-" * len(header)
 
             lines.append("=" * len(header))
-            lines.append(f"{('STATISTICHE GIORNALIERE - ' + giorno.strftime('%d-%m-%Y')).center(len(header))}")
+            lines.append(f"{('Riepilogo Giornaliero - ' + giorno.strftime('%d-%m-%Y')).center(len(header))}")
             lines.append("=" * len(header))
             lines.append("")
             lines.append(header)
@@ -3315,12 +3398,12 @@ class GestioneSpese(tk.Tk):
             if mode == "mese":
                 year, month = ref.year, ref.month
                 monthname = self.get_month_name(month)
-                title = f"STATISTICHE MENSILI - {monthname} {year}"
+                title = f"Riepilogo Mensile - {monthname} {year}"
             elif mode == "anno":
                 year = ref.year
-                title = f"STATISTICHE ANNUALI - ANNO {year}"
+                title = f"Riepilogo Anno {year}"
             else:
-                title = "STATISTICHE TOTALI PER CATEGORIA"
+                title = "Riepilogo Categorie"
 
             header = f"{'Categoria':<{label_width}} {'Totale (€)':>{value_width}}  {'Tipo':<{tipo_width}}"
             sep = "-" * len(header)
@@ -3371,14 +3454,14 @@ class GestioneSpese(tk.Tk):
                 giorno = datetime.datetime.strptime(self.cal.get_date(), "%d-%m-%Y").date()
             except Exception:
                 giorno = now
-            filename = f"Statistiche_Giorno_{giorno.strftime('%d-%m-%Y')}.txt"
+            filename = f"Riepilogo_Giorno_{giorno.strftime('%d-%m-%Y')}.txt"
         elif mode == "mese":
             monthname = self.get_month_name(ref.month)
-            filename = f"Statistiche_Mese_{monthname}_{ref.year}.txt"
+            filename = f"Riepilogo_Mese_{monthname}_{ref.year}.txt"
         elif mode == "anno":
-            filename = f"Statistiche_Anno_{ref.year}.txt"
+            filename = f"Riepilogo_Anno_{ref.year}.txt"
         else:
-            filename = f"Statistiche_Per_Categoria.txt"
+            filename = f"Riepilogo_Per_Categoria.txt"
 
         self.show_export_preview("\n".join(lines), default_filename=filename)
 
@@ -3399,7 +3482,7 @@ class GestioneSpese(tk.Tk):
         tot_entrate, tot_uscite = 0.0, 0.0
 
         lines.append("=" * 100)
-        lines.append(f"{('Spese per il mese di ' + monthname + ' ' + str(year)).center(100)}")
+        lines.append(f"{('Riepilogo Mensile ' + monthname + ' ' + str(year)).center(100)}")
         lines.append("=" * 100 + "\n")
 
         days_in_month = [
@@ -3440,13 +3523,13 @@ class GestioneSpese(tk.Tk):
 
         now = datetime.date.today()
         month = now.strftime("%m-%Y")
-        filename = f"Statistiche_Mese_{month}.txt"
+        filename = f"Riepilogo_Mese_{month}.txt"
         self.show_export_preview("\n".join(lines), default_filename=filename)
 
     def show_export_preview(self, content, default_filename=None):
         preview = tk.Toplevel(self)
         preview.withdraw()  
-        preview.title("Anteprima Esportazione Statistiche")
+        preview.title("Anteprima Esportazione Riepilogo")
         #preview.resizable(False, False)  # Blocca il ridimensionamento
         
         larghezza_finestra = 1300
@@ -3474,13 +3557,13 @@ class GestioneSpese(tk.Tk):
 
         def save_file():
             now = datetime.date.today()
-            filename = default_filename or f"Statistiche_Export_{now.day:02d}-{now.month:02d}-{now.year}.txt"
+            filename = default_filename or f"Riepilogo_Export_{now.day:02d}-{now.month:02d}-{now.year}.txt"
             file = filedialog.asksaveasfilename(
                 defaultextension=".txt",
                 filetypes=[("File txt", "*.txt")],
                 initialdir=EXPORT_FILES,
                 initialfile=filename,
-                title="Salva Statistiche",
+                title="Salva Riepilogo",
                 confirmoverwrite=False,
                 parent=preview)
             if file:
@@ -3495,7 +3578,7 @@ class GestioneSpese(tk.Tk):
                 with open(file, "w", encoding="utf-8") as f:
                     f.write(content)
                 preview.destroy()
-                self.show_custom_warning("Esportazione completata", f"Statistiche esportate in {file}")
+                self.show_custom_warning("Esportazione completata", f"Riepilogo esportato in {file}")
 
         btn_frame = ttk.Frame(preview)
         btn_frame.pack(fill=tk.X, pady=8)
@@ -3627,7 +3710,7 @@ class GestioneSpese(tk.Tk):
 
         lines = []
         lines.append("=" * len(header))
-        lines.append(f"{('REPORT ENTRATE/USCITE ANNO ' + str(year)).center(len(header))}")
+        lines.append(f"{('RIEPILOGO ENTRATE/USCITE ANNO ' + str(year)).center(len(header))}")
         lines.append("=" * len(header))
         lines.append("")
 
@@ -3662,7 +3745,7 @@ class GestioneSpese(tk.Tk):
         text = "\n".join(lines)
         
         now = datetime.date.today()
-        self.show_export_preview(text, default_filename=f"Statistiche_Anno_{year}.txt")
+        self.show_export_preview(text, default_filename=f"Riepilogo_Anno_{year}.txt")
 
     def suggerisci_tipo_categoria(self, categoria):
         n_entrate = 0
@@ -4214,8 +4297,8 @@ class GestioneSpese(tk.Tk):
         self.update_totalizzatore_mese_corrente()
         self.update_spese_mese_corrente()
         self.stats_label.config(
-            text=f"Statistiche giornaliere - {today.strftime('%d-%m-%Y')}"
-        )
+            text=f"Riepilogo Giornaliero - {today.strftime('%d-%m-%Y')}", foreground="purple",
+    font=("Arial", 10, "bold"))
 
     def open_compare_window(self):
         today = datetime.date.today()
@@ -4730,7 +4813,8 @@ class GestioneSpese(tk.Tk):
         self.update_stats()
         self.estratto_month_var.set(f"{giorno.month:02d}")
         self.estratto_year_var.set(str(giorno.year))
-        self.stats_label.config(text=f"Statistiche giornaliere - {giorno.strftime('%d-%m-%Y')}")
+        self.stats_label.config(text=f"Riepilogo Giornaliero - {giorno.strftime('%d-%m-%Y')}", foreground="purple",
+    font=("Arial", 10, "bold"))
 
     def aggiorna(self, url, nome_file):
         try:
@@ -4738,7 +4822,7 @@ class GestioneSpese(tk.Tk):
             if os.path.exists(nome_file):
                 nome_backup = f"{nome_file}.bak"
                 try:
-                    shutil.copy2(nome_file, nome_backup)  # Copia con metadati
+                    shutil.copy2(nome_file, nome_backup)
                     print(f"Backup creato: {nome_backup}")
                 except Exception as backup_err:
                     print(f"Errore durante la creazione del backup: {backup_err}")
@@ -5107,7 +5191,7 @@ class GestioneSpese(tk.Tk):
                             return 
                 with open(file, "w", encoding="utf-8") as f:
                     f.write(contenuto_testo)
-                self.show_custom_warning("Esportazione completata", f"Statistiche esportate in\n{file}")
+                self.show_custom_warning("Esportazione completata", f"Riepilogo esportato in\n{file}")
                     
             button_frame = ttk.Frame(preview_window, padding=(10, 0, 10, 10))
             button_frame.pack()  
@@ -5218,7 +5302,6 @@ class GestioneSpese(tk.Tk):
                 x0 = margine + i * larghezza_barra
                 x1 = x0 + larghezza_barra * 0.6
                 colore = colori.get(etichetta, "gray")
-                
                 parts = etichetta.split(" ")
                 tipo = parts[-1] if mostra_tipo else None 
                 if anno_selezionato == "Tutti":
@@ -5244,7 +5327,7 @@ class GestioneSpese(tk.Tk):
                 canvas.tag_bind(
                     rect, 
                     "<Double-1>", 
-                    lambda e, f=filter_data, t=title_text: self.show_transactions_detail_popup(f, t)
+                    lambda e, f=filter_data, t=title_text: self.mostra_transazioni_popup(f, t)
                 )
                 if mostra_tipo and " " in etichetta:
                     tipo_label = etichetta.split(" ")[1]
@@ -5262,41 +5345,39 @@ class GestioneSpese(tk.Tk):
                 canvas.tooltip = None
             canvas.delete("all")
             canvas.update_idletasks()
-            canvas.pack(fill="both", expand=True, padx=10, pady=10)
-            larghezza = canvas.winfo_width()
-            altezza = canvas.winfo_height()
+            LARGHEZZA_BARRA_FISSA = 80 
             margine = 50
+            larghezza_visualizzata = canvas.winfo_width()
+            altezza = canvas.winfo_height()
             y_base = altezza - margine
             totale = sum(val for _, val in dati) if dati else 1
             max_val = max(val for _, val in dati) if dati else 1
             scala = (altezza - margine * 2) / (max_val * 1.2)
-            larghezza_barra = (larghezza - margine * 2) // max(len(dati), 1)
-            anno_selezionato = canvas.anno_corrente 
+            numero_barre = max(len(dati), 1)
+            larghezza_contenuto = margine * 2 + numero_barre * LARGHEZZA_BARRA_FISSA
+            x_offset = max(0, (larghezza_visualizzata - larghezza_contenuto) // 2)
+            anno_selezionato = canvas.anno_corrente
             for i, (categoria, valore) in enumerate(dati):
-                x0 = margine + i * larghezza_barra
-                x1 = x0 + larghezza_barra * 0.6
+                x0 = x_offset + margine + i * LARGHEZZA_BARRA_FISSA
+                x1 = x0 + LARGHEZZA_BARRA_FISSA * 0.6
                 y1 = y_base - valore * scala
                 colore = colori.get(categoria, "#888888")
                 rect = canvas.create_rectangle(x0, y_base, x1, y1, fill=colore)
                 anno = anno_selezionato
-                
-                if categoria == "Altro":
-                    canvas.tag_bind(rect, "<Button-1>", lambda e: gestisci_click_altro(e, canvas, anno))
-                    canvas.tag_bind(rect, "<Double-1>", lambda e: gestisci_click_altro(e, canvas, anno)) 
-                else:
-                    filter_data = {"anno": anno, "categoria": categoria, "tipo": "Uscita"}
-                    title_text = f"Spese Categoria '{categoria}' (Anno: {anno})"
-                    canvas.tag_bind(
-                        rect, 
-                        "<Double-1>", 
-                        lambda e, f=filter_data, t=title_text: self.show_transactions_detail_popup(f, t)
-                    )
+                filter_data = {"anno": anno, "categoria": categoria, "tipo": "Uscita"}
+                title_text = f"Spese Categoria '{categoria}' (Anno: {anno})"
+                canvas.tag_bind(
+                    rect, 
+                    "<Double-1>", 
+                    lambda e, f=filter_data, t=title_text: self.mostra_transazioni_popup(f, t)
+                )
                 percentuale = int((valore / totale) * 100)
                 canvas.create_text((x0 + x1) / 2, y1 - 12, text=f"{int(valore)} €", font=("Arial", 9))
                 canvas.create_text((x0 + x1) / 2, y1 - 26, text=f"{percentuale}%", font=("Arial", 8), fill="gray")
                 limite = 10
                 nome_visualizzato = categoria if len(categoria) <= limite else categoria[:limite] + "..."
                 canvas.create_text((x0 + x1) / 2, y_base + 20, text=nome_visualizzato, font=("Arial", 9))
+                
                 def show_tooltip(event, text=categoria):
                     if hasattr(canvas, "tooltip") and canvas.tooltip:
                         canvas.tooltip.destroy()
@@ -5311,156 +5392,58 @@ class GestioneSpese(tk.Tk):
                     if hasattr(canvas, "tooltip") and canvas.tooltip:
                         canvas.tooltip.destroy()
                         canvas.tooltip = None
-
                 canvas.tag_bind(rect, "<Enter>", show_tooltip)
                 canvas.tag_bind(rect, "<Leave>", hide_tooltip)
             canvas.create_text(
-                larghezza // 2,
+                larghezza_visualizzata // 2,
                 y_base + 40,
                 text=f"Totale uscite: € {totale:,.2f}",
                 font=("Arial", 10, "bold"),
                 fill="black"
             )
+            canvas.config(scrollregion=(0, 0, larghezza_contenuto, altezza))
 
-        def disegna_barre_categories_extra(canvas, dati_filtrati, colori, anno_selezionato):
-            canvas.delete("all")
-            canvas.update_idletasks()
-            if hasattr(tab2, "bottone_indietro"):
-                tab2.bottone_indietro.destroy()
-            if hasattr(tab2, "legenda_altro"):
-                tab2.legenda_altro.destroy()
-            selettore_anno2.config(state='disabled')
-            if anno_selezionato == "Tutti" and dati_filtrati:
-                canvas.pack_forget()
-                canvas.place(relx=0.0, rely=0.0, relwidth=0.78, relheight=1.0)
-                mostra_legenda_altro(tab2, dati_filtrati, colori)
-            else:
-                canvas.pack(fill="both", expand=True, padx=10, pady=10)
-                canvas.place_forget()
-            if hasattr(tab2, "label_altro"):
-                tab2.label_altro.destroy()
-            tab2.label_altro = tk.Label(
-                tab2,
-                text=f"Analisi delle categorie escluse (Anno: {anno_selezionato})",
-                font=("Arial", 10, "bold"),
-                fg="green"
-            )
-            tab2.label_altro.place(relx=0.5, y=5, anchor="n")
-            tab2.bottone_indietro = ttk.Button(
-                tab2,
-                text="← Indietro",
-                style="Verde.TButton",
-                command=lambda: aggiorna_tab2(reset_view=True)
-            )
-            tab2.bottone_indietro.place(relx=0.99, y=5, anchor="ne")
-            larghezza = canvas.winfo_width()
-            altezza = canvas.winfo_height()
-            margine = 50
-            y_base = altezza - margine
-            if not dati_filtrati:
-                canvas.create_text(
-                    larghezza // 2,
-                    altezza // 2,
-                    text="Nessuna spesa disponibile",
-                    font=("Arial", 12)
-                )
-                return
-            totale = sum(val for _, val in dati_filtrati)
-            max_val = max(val for _, val in dati_filtrati)
-            scala = (altezza - margine * 2) / (max_val * 1.2)
-            larghezza_barra = (larghezza - margine * 2) // max(len(dati_filtrati), 1)
-            for i, (categoria, valore) in enumerate(dati_filtrati):
-                x0 = margine + i * larghezza_barra
-                x1 = x0 + larghezza_barra * 0.6
-                y1 = y_base - valore * scala
-                colore = colori.get(categoria, "#888888")
-                rect = canvas.create_rectangle(x0, y_base, x1, y1, fill=colore)
-                filter_data = {"anno": anno_selezionato, "categoria": categoria, "tipo": "Uscita"}
-                title_text = f"Spese Categoria '{categoria}' (Anno: {anno_selezionato})"
-                
-                canvas.tag_bind(
-                    rect, 
-                    "<Double-1>", 
-                    lambda e, f=filter_data, t=title_text: self.show_transactions_detail_popup(f, t)
-                )
-                percentuale = int((valore / totale) * 100)
-                if anno_selezionato != "Tutti":
-                    canvas.create_text((x0 + x1) / 2, y1 - 12, text=f"{int(valore)} €", font=("Arial", 9))
-                    canvas.create_text((x0 + x1) / 2, y1 - 26, text=f"{percentuale}%", font=("Arial", 8), fill="gray")
-                    nome_visualizzato = categoria if len(categoria) <= 6 else categoria[:6] + "..."
-                    canvas.create_text((x0 + x1) / 2, y_base + 20, text=nome_visualizzato, font=("Arial", 9))
+        def mostra_legenda_categorie(canvas_master, categorie_dati, colori):
+            if hasattr(canvas_master, "legenda_frame"):
+                canvas_master.legenda_frame.destroy()
+            categorie_ordinate = sorted(categorie_dati, key=lambda x: x[1], reverse=True)
+            legenda_frame = ttk.Frame(canvas_master, relief="groove", borderwidth=1)
+            legenda_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=(0, 10)) 
+            canvas_master.legenda_frame = legenda_frame
+            tk.Label(legenda_frame, text="Legenda Categorie", font=("Arial", 10, "bold")).pack(pady=5)
+            scroll_container = ttk.Frame(legenda_frame)
+            scroll_container.pack(fill="both", expand=True, padx=5, pady=5)
+            scrollbar = ttk.Scrollbar(scroll_container, orient="vertical")
+            scrollbar.pack(side="right", fill="y")
+            canvas_legenda = tk.Canvas(scroll_container, borderwidth=0, highlightthickness=0, yscrollcommand=scrollbar.set)
+            canvas_legenda.pack(side="left", fill="both", expand=True)
+            scrollbar.config(command=canvas_legenda.yview)
+            inner_frame = ttk.Frame(canvas_legenda)
+            
+            def on_frame_configure(event):
+                bbox = canvas_legenda.bbox("all")
+                if bbox and (bbox[3] - bbox[1] < event.height):
+                    altezza_forzata = event.height + 1
+                    nuova_scrollregion = (bbox[0], bbox[1], bbox[2], altezza_forzata)
+                    canvas_legenda.configure(scrollregion=nuova_scrollregion)
                 else:
-                    pass
+                    canvas_legenda.configure(scrollregion=bbox)
+                canvas_legenda.itemconfig(canvas_legenda_window, width=event.width)
+            canvas_legenda.bind('<Configure>', on_frame_configure)
+            canvas_legenda_window = canvas_legenda.create_window((0, 0), window=inner_frame, anchor="nw")
+            
+            for categoria, valore in categorie_ordinate:
+                colore = colori.get(categoria, "#888888")
+                voce_frame = ttk.Frame(inner_frame)
+                voce_frame.pack(fill="x", padx=2, pady=1)
+                quadrato = tk.Canvas(voce_frame, width=10, height=10, bg=colore, highlightthickness=0)
+                quadrato.pack(side="left", padx=(5, 5))
+                testo = f"{categoria}: € {int(valore):,}"
+                tk.Label(voce_frame, text=testo, anchor="w", font=("Arial", 8)).pack(side="left", fill="x", expand=True)
+            inner_frame.update_idletasks()
+            canvas_legenda.config(scrollregion=canvas_legenda.bbox("all"))
+            canvas_legenda.event_generate('<Configure>')
 
-                def show_tooltip(event, text=categoria, valore=valore, percentuale=percentuale):
-                    if hasattr(canvas, "tooltip") and canvas.tooltip:
-                        canvas.tooltip.destroy()
-                    canvas.tooltip = tk.Toplevel(canvas)
-                    canvas.tooltip.wm_overrideredirect(True)
-                    canvas.tooltip.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
-                    label = tk.Label(
-                        canvas.tooltip,
-                        text=f"{text}\n{int(valore)} € ({percentuale}%)",
-                        background="#ffffe0",
-                        relief="solid",
-                        borderwidth=1,
-                        font=("Arial", 9)
-                    )
-                    label.pack(ipadx=4)
-                
-                def hide_tooltip(event):
-                    if hasattr(canvas, "tooltip") and canvas.tooltip:
-                        canvas.tooltip.destroy()
-                        canvas.tooltip = None
-                canvas.tag_bind(rect, "<Enter>", show_tooltip)
-                canvas.tag_bind(rect, "<Leave>", hide_tooltip)
-            canvas.create_text(
-                larghezza // 2,
-                y_base + 40,
-                text=f"Totale categorie escluse (Altro): € {totale:,.2f}",
-                font=("Arial", 10, "bold"),
-                fill="black"
-            )
-        
-        def mostra_legenda_altro(canvas_master, categorie_escluse_dati, colori):
-                if hasattr(canvas_master, "legenda_altro"):
-                        canvas_master.legenda_altro.destroy()
-                categorie_ordinate = sorted(categorie_escluse_dati, key=lambda x: x[1], reverse=True)
-                legenda_frame = ttk.Frame(canvas_master, relief="groove", borderwidth=1)
-                legenda_frame.place(relx=0.80, rely=0.05, relwidth=0.18, relheight=0.90, anchor="nw") 
-                canvas_master.legenda_altro = legenda_frame
-                tk.Label(legenda_frame, text="Legenda 'Altro'", font=("Arial", 10, "bold")).pack(pady=5)
-                scroll_container = ttk.Frame(legenda_frame)
-                scroll_container.pack(fill="both", expand=True, padx=5, pady=5)
-                scrollbar = ttk.Scrollbar(scroll_container, orient="vertical")
-                scrollbar.pack(side="right", fill="y")
-                canvas_legenda = tk.Canvas(scroll_container, borderwidth=0, highlightthickness=0, yscrollcommand=scrollbar.set)
-                canvas_legenda.pack(side="left", fill="both", expand=True)
-                scrollbar.config(command=canvas_legenda.yview)
-                inner_frame = ttk.Frame(canvas_legenda)
-        
-                def on_frame_configure(event):
-                        bbox = canvas_legenda.bbox("all")
-                        if bbox and (bbox[3] - bbox[1] < event.height):
-                            altezza_forzata = event.height + 1
-                            nuova_scrollregion = (bbox[0], bbox[1], bbox[2], altezza_forzata)
-                            canvas_legenda.configure(scrollregion=nuova_scrollregion)
-                        else:
-                            canvas_legenda.configure(scrollregion=bbox)
-                        canvas_legenda.itemconfig(canvas_legenda_window, width=event.width)
-                canvas_legenda.bind('<Configure>', on_frame_configure)
-                canvas_legenda_window = canvas_legenda.create_window((0, 0), window=inner_frame, anchor="nw")
-                for categoria, valore in categorie_ordinate:
-                        colore = colori.get(categoria, "#888888")
-                        voce_frame = ttk.Frame(inner_frame)
-                        voce_frame.pack(fill="x", padx=2, pady=1)
-                        quadrato = tk.Canvas(voce_frame, width=10, height=10, bg=colore, highlightthickness=0)
-                        quadrato.pack(side="left", padx=(5, 5))
-                        testo = f"{categoria}: € {int(valore):,}"
-                        tk.Label(voce_frame, text=testo, anchor="w", font=("Arial", 8)).pack(side="left")
-                inner_frame.update_idletasks()
-                canvas_legenda.config(scrollregion=canvas_legenda.bbox("all"))
-                canvas_legenda.event_generate('<Configure>')
 
         def disegna_barre_saldo(canvas, dati):
             canvas.delete("all")
@@ -5514,11 +5497,11 @@ class GestioneSpese(tk.Tk):
                         entrate[chiave] += importo
                     elif tipo == "uscita":
                         uscite[chiave] += importo 
-            totale_entrate = sum(entrate.values())
-            totale_uscite = sum(uscite.values())
-            saldo_totale = totale_entrate - totale_uscite
-            self.lbl_entrate_tab3.config(text=f"Entrate: € {totale_entrate:,.2f}")
-            self.lbl_uscite_tab3.config(text=f"Uscite: € {totale_uscite:,.2f}")
+            total_entrate = sum(entrate.values())
+            total_uscite = sum(uscite.values())
+            saldo_totale = total_entrate - total_uscite
+            self.lbl_entrate_tab3.config(text=f"Entrate: € {total_entrate:,.2f}")
+            self.lbl_uscite_tab3.config(text=f"Uscite: € {total_uscite:,.2f}")
             if saldo_totale >= 0:
                 self.lbl_saldo_tab3.config(text=f"Saldo: € {saldo_totale:,.2f}", fg="green")
             else:
@@ -5535,59 +5518,30 @@ class GestioneSpese(tk.Tk):
                 grafico = {mesi[m - 1]: saldo_per_grafico.get(m, 0) for m in range(1, 13)}
             disegna_barre_saldo(canvas3, grafico)
             
-        def aggiorna_tab2(event=None, reset_view=False):
-            if hasattr(canvas2, 'in_altro_mode') and canvas2.in_altro_mode and not reset_view:
-                categorie_escluse_dati = getattr(canvas2, "altre_categorie_dati", [])
-                colori_altre = getattr(canvas2, "colori_altre", {})
-                anno_corrente = canvas2.anno_corrente
-                filtrate = [item for item in categorie_escluse_dati if item[0] != "Altro"]
-                colori = {cat: colori_altre.get(cat, "#888888") for cat, _ in filtrate}
-                disegna_barre_categories_extra(canvas2, filtrate, colori, anno_corrente)
-                return
-            canvas2.in_altro_mode = False  
-            selettore_anno2.config(state='readonly')
+        def aggiorna_tab2(event=None):
             anno = selettore_anno2.get()
             canvas2.anno_corrente = anno
             if hasattr(tab2, "bottone_indietro"):
                 tab2.bottone_indietro.destroy()
-            if hasattr(tab2, "legenda_altro"):
-                tab2.legenda_altro.destroy()
             if hasattr(tab2, "label_altro"):
                 tab2.label_altro.destroy()
-            canvas2.place_forget()
-            canvas2.pack(fill="both", expand=True, padx=10, pady=10)
+            canvas_frame_scroll.grid(row=1, column=0, columnspan=1, sticky="nsew", padx=10, pady=(0, 10)) 
             categories = defaultdict(float)
             for data, voci in self.spese.items():
                 if anno == "Tutti" or str(data.year) == anno:
                     for voce in voci:
                         if voce[3].strip().lower() == "uscita":
                             categories[voce[0]] += float(voce[2])
-            N = 13
-            tutte = sorted(categories.items(), key=lambda x: x[1], reverse=True)
-            principali = tutte[:N]
-            altre = tutte[N:]
-            total_altre = sum(val for _, val in altre)
-            canvas2.altre_categorie_dati = altre  
-            if total_altre > 0:
-                principali.append(("Altro", total_altre))
+            
+            tutte_categorie = sorted(categories.items(), key=lambda x: x[1], reverse=True)
+            
             colori = {}
-            for cat, _ in tutte:
-                if cat == "Altro":
-                    colori[cat] = "#808080"  
-                else:
-                    colori[cat] = f'#{random.randint(50,200):02x}{random.randint(50,200):02x}{random.randint(50,200):02x}'
-            canvas2.colori_altre = colori  
+            for cat, _ in tutte_categorie:
+                colori[cat] = f'#{random.randint(50,200):02x}{random.randint(50,200):02x}{random.randint(50,200):02x}'
             canvas2.delete("all")
             canvas2.update_idletasks()
-            disegna_barre_categorie(canvas2, principali, colori)
-            if len(tutte) > N:
-                canvas2.create_text(
-                    canvas2.winfo_width() // 2,
-                    20,
-                    text=f"Visualizzate le prime {N} categorie su {len(tutte)} totali",
-                    font=("Arial", 10),
-                    fill="black"
-                )
+            disegna_barre_categorie(canvas2, tutte_categorie, colori)
+            mostra_legenda_categorie(tab2, tutte_categorie, colori)
 
         def aggiorna_tab1(event=None):
             anno_selezionato = selettore_anno1.get()
@@ -5609,11 +5563,11 @@ class GestioneSpese(tk.Tk):
                         entrate[chiave] += importo
                     elif tipo == "uscita":
                         uscite[chiave] += importo
-            totale_entrate = sum(entrate.values())
-            totale_uscite = sum(uscite.values())
-            saldo = totale_entrate - totale_uscite
-            lbl_entrate.config(text=f"Entrate: € {totale_entrate:,.2f}")
-            lbl_uscite.config(text=f"Uscite: € {totale_uscite:,.2f}")
+            total_entrate = sum(entrate.values())
+            total_uscite = sum(uscite.values())
+            saldo = total_entrate - total_uscite
+            lbl_entrate.config(text=f"Entrate: € {total_entrate:,.2f}")
+            lbl_uscite.config(text=f"Uscite: € {total_uscite:,.2f}")
             if saldo >= 0:
                 lbl_saldo.config(text=f"Saldo: € {saldo:,.2f}", fg="green")
             else:
@@ -5636,20 +5590,6 @@ class GestioneSpese(tk.Tk):
                     colore[f"{nome_mese} Entrata"] = "green"
                     colore[f"{nome_mese} Uscita"] = "red"
                 disegna_barre(canvas1, grafico, colore, mostra_anno=False, mostra_tipo=True, centro=False)
-
-        def gestisci_click_altro(event, canvas, anno_corrente):
-            if hasattr(canvas, "tooltip") and canvas.tooltip:
-               canvas.tooltip.destroy()
-               canvas.tooltip = None
-            canvas.in_altro_mode = True 
-            categorie_escluse_dati = getattr(canvas, "altre_categorie_dati", [])
-            colori_altre = getattr(canvas, "colori_altre", {})
-            filtrate = categorie_escluse_dati
-            colori = {cat: colori_altre.get(cat, "#888888") for cat, _ in filtrate}
-            canvas.delete("all")
-            canvas.update_idletasks()
-            disegna_barre_categories_extra(canvas, filtrate, colori, anno_corrente)
-            tab2.update() 
 
         larghezza_finestra = 1200
         altezza_finestra = 600
@@ -5676,7 +5616,7 @@ class GestioneSpese(tk.Tk):
         lbl_uscite.pack(side="left", padx=10)
         lbl_saldo = tk.Label(frame_totali, text="Saldo: € 0.00", font=("Arial", 10, "bold"))
         lbl_saldo.pack(side="left", padx=10)
-        tk.Label(tab1, text="■ Seleziona periodo **Doppio click per il Dettaglio**", fg="green", font=("Arial", 10)).pack(side="top", padx=10)
+        tk.Label(tab1, text="■ Seleziona periodo *Dettaglio (Clicca 🖱️)*", fg="green", font=("Arial", 10)).pack(side="top", padx=10)
         selettore_anno1 = ttk.Combobox(tab1, values=["Tutti"] + [str(a) for a in anni], state='readonly')
         selettore_anno1.set("Tutti")
         selettore_anno1.pack(pady=10)
@@ -5686,23 +5626,33 @@ class GestioneSpese(tk.Tk):
         canvas1.bind("<Configure>", lambda e: aggiorna_tab1())
 
         tab2 = ttk.Frame(notebook)
+        tab2.grid_columnconfigure(0, weight=4) 
+        tab2.grid_columnconfigure(1, weight=1) 
+        tab2.grid_rowconfigure(1, weight=1) 
         notebook.add(tab2, text="Categorie")
-        tk.Label(tab2, text="■ Seleziona periodo **Doppio click per il Dettaglio**", fg="green", font=("Arial", 10)).pack(side="top", padx=10)
+        tk.Label(tab2, text="■ Seleziona periodo *Dettaglio (Clicca 🖱️)*", fg="green", font=("Arial", 10)).grid(row=0, column=0, sticky="w", padx=10, pady=5)
         selettore_anno2 = ttk.Combobox(tab2, values=["Tutti"] + [str(a) for a in anni], state='readonly')
         selettore_anno2.set(anno_corrente if anno_corrente in [str(a) for a in anni] else "Tutti") 
-        selettore_anno2.pack(pady=10)
+        selettore_anno2.grid(row=0, column=0, sticky="n", pady=10) 
         selettore_anno2.bind("<<ComboboxSelected>>", aggiorna_tab2)
-        canvas2 = tk.Canvas(tab2, bg="white")
+        canvas_frame_scroll = ttk.Frame(tab2)
+        canvas_frame_scroll.grid(row=1, column=0, columnspan=1, sticky="nsew", padx=10, pady=(0, 10)) 
+        scrollbar_h = ttk.Scrollbar(canvas_frame_scroll, orient="horizontal")
+        scrollbar_h.pack(side="bottom", fill="x")
+        canvas2 = tk.Canvas(
+            canvas_frame_scroll, 
+            bg="white",
+            xscrollcommand=scrollbar_h.set 
+        )
+        canvas2.pack(side="top", fill="both", expand=True)
+        scrollbar_h.config(command=canvas2.xview) 
         canvas2.tooltip = None
         canvas2.anno_corrente = selettore_anno2.get()
-        canvas2.in_altro_mode = False 
-        canvas2.altre_categorie_dati = []
-        canvas2.pack(fill="both", expand=True, padx=10, pady=10)
         canvas2.bind("<Configure>", lambda e: aggiorna_tab2())
-        aggiorna_tab2(reset_view=True) 
+        aggiorna_tab2() 
         
         tab3 = ttk.Frame(notebook)
-        notebook.add(tab3, text="Saldo")
+        notebook.add(tab3, text="Saldo Mensile/Annuale")
         frame_totali_tab3 = ttk.Frame(tab3)
         frame_totali_tab3.pack(side="bottom", pady=10)
         self.lbl_entrate_tab3 = tk.Label(frame_totali_tab3, text="Entrate: € 0.00", fg="green", font=("Arial", 10, "bold"))
@@ -5718,16 +5668,10 @@ class GestioneSpese(tk.Tk):
         selettore_anno3.bind("<<ComboboxSelected>>", aggiorna_tab3)
         canvas3 = tk.Canvas(tab3, bg="white")
         canvas3.pack(fill="both", expand=True, padx=10, pady=10)
-        legenda3 = tk.Frame(tab3)
-        legenda3.pack(pady=5)
-        tk.Label(legenda3, text="■ Saldo positivo", fg="green", font=("Arial", 10)).pack(side="left", padx=10)
-        tk.Label(legenda3, text="■ Saldo negativo (−)", fg="red", font=("Arial", 10)).pack(side="left", padx=10)
         canvas3.bind("<Configure>", lambda e: aggiorna_tab3())
-        
-        aggiorna_tab1()
         aggiorna_tab3()
 
-    def show_transactions_detail_popup(self, data_filter, title):
+    def mostra_transazioni_popup(self, data_filter, title):
         anno = data_filter.get("anno")
         mese = data_filter.get("mese")
         categoria = data_filter.get("categoria")
@@ -5772,7 +5716,6 @@ class GestioneSpese(tk.Tk):
         popup.lift()
         popup.focus_force()
         popup.bind("<Escape>", lambda event: popup.destroy()) 
-
         tk.Label(popup, text=title, font=("Arial", 12, "bold")).pack(pady=10)
         columns = ("Data", "Categoria", "Descrizione", "Importo", "Tipo")
         tree = ttk.Treeview(popup, columns=columns, show="headings", height=10)
@@ -5814,56 +5757,52 @@ class GestioneSpese(tk.Tk):
         def apri_link_python(event):
             webbrowser.open("https://www.python.org/downloads/")
 
+
         info_win = tk.Toplevel(self)
-        info_win.title("Informazioni sulla applicazione")
+        info_win.title("Informazioni sull'applicazione e Interazioni")
         info_win.resizable(False, False)
 
         text = tk.Text(info_win, wrap="word", bg="white", font=("Courier New", 10))
         text.pack(fill="both", expand=True, padx=20, pady=10)
-
-        text.insert("end", f"{NAME}\n", "titolo")
+        text.insert("end", f"{NAME}  ", "titolo")
         text.insert("end", f"Versione v.{VERSION}\n", "versione")
-        text.insert("end", "© 2025 Casa Facile Pro - Sviluppo Python/Tkinter, 2023-2025\n")
-        text.insert("end", "Email: ")
+        text.insert("end", "© 2025 Casa Facile Pro - Sviluppo Python/Tkinter (2023-2025)    ")
+        text.insert("end", "Email Supporto: ")
         text.insert("end", "helpcasafacilepro@gmail.com\n", "email")
-
-        text.insert("end", "\nFunzionalità principali:\n", "sezione")
-        text.insert("end", "• Inserimento, modifica e cancellazione di spese ed entrate per categoria\n")
-        text.insert("end", "• Gestione categorie personalizzate\n")
-        text.insert("end", "• Gestione Ricorrenze (spese/entrate ripetute)\n")
-        text.insert("end", "• Esportazione dettagliata giorno/mese/anno/utenze (Formato stampabile)\n")
-        text.insert("end", "• Statistiche giornaliere, mensili, annuali e totali e analisi categorie, Bonus Time Machine\n")
-        text.insert("end", "• Backup, import/export database, Rubrica personale , Gestione utenze, Cerca, ...\n")
-        text.insert("end", "• Usa i pulsanti in alto per scegliere la modalità di visualizzazione delle statistiche (Giorno, Mese, Anno, Totali).\n")
-        text.insert("end", "• Per esportare,visualizzare,stampare  le statistiche, usa 'Estrai'.\n")
-        text.insert("end", "• Calendario interattivo con caselle colorate.\n")
-
-        text.insert("end", "\nQuesto programma si basa su Python.")
-        text.insert("end", "Scarica da: ")
+        text.insert("end", "Progetto Python: ")
         text.insert("end", "https://www.python.org/downloads/\n", "link")
-
-        text.insert("end", "\nI plugin pip python sono autoinstallanti, ma per buona promemoria, ecco come installarli manualmente:\n", "sezione")
-
-        text.insert("end", "\nSu Linux:\n")
-        text.insert("end", "  Apri il terminale e digita:\n")
-        text.insert("end", "  sudo apt install tkcalendar python3-psutil python3-requests\n")
-        text.insert("end", "  Oppure:\n")
-        text.insert("end", "  pip install tkcalendar psutil requests\n")
-
-        text.insert("end", "\nSu Windows:\n")
-        text.insert("end", "  Apri il Prompt dei comandi e digita:\n")
-        text.insert("end", "  py -m pip install tkcalendar psutil requests win32print win32api win32con\n")
-        text.insert("end", "  Assicurati di installare Python, psutil, tkcalendar, requests, win32print, win32api e win32con prima di avviare il programma.\n")
-
-        text.tag_config("titolo", foreground="darkblue", font=("Courier New", 11, "bold"))
+        text.insert("end", "\n──────────────── FUNZIONALITÀ PRINCIPALI ────────────────\n", "sezione")
+        text.insert("end", "• Inserimento, modifica e cancellazione di spese ed entrate per categoria.\n")
+        text.insert("end", "• Gestione Categorie personalizzate e Ricorrenze (spese/entrate ripetute).\n")
+        text.insert("end", "• Riepilogo e Analisi: Giornaliere, Mensili, Annuali, Totali, Grafici, Bonus Time Machine, e Confronta.\n")
+        text.insert("end", "• Esportazione Dati e Riepilogo dettagliato in formato stampabile (Giorno, Mese, Anno, Utenze).\n")
+        text.insert("end", "• Strumenti Integrati: Saldo Conto, Calcolatrice, Rubrica, Gestione Utenze, Cerca, Report Finanziamenti.\n")
+        text.insert("end", "• Database: Backup (Automatico e Manuale) , Import/Export database e Reset.\n")
+        text.insert("end", "• L'applicazione integra un WebServer sulla porta 8081 per consentire l'accesso remoto ai dati.\n")
+        text.insert("end", "  Questo accesso è protetto da password per garantirne la sicurezza, consentendo la gestione dell'app tramite\n  browser (PC, SMARTPHONE) solo agli utenti autorizzati.\n")
+        text.insert("end", "• Calendario interattivo con caselle colorate che indicano l'attività del giorno.\n")
+        text.insert("end", "\nIl tasto Esc chiude istantaneamente qualsiasi finestra secondaria aperta.\n" "Dopo 5 minuti di inattività, la finestra principale viene iconizzata e un popup di notifica appare ogni 5 minuti; ")
+        text.insert("end", "\npassando il mouse sull'icona o sul popup, l'applicazione si riapre.\n")
+        text.insert("end", "\n──────────────── INTERAZIONE TABELLE DATI ────────────────\n", "sezione")
+        text.insert("end", "Le tabelle che mostrano le tue operazioni (Treeview) sono progettate per l'efficienza:\n\n")
+        text.insert("end", "1. Ordinamento delle Colonne (Sortby):\n", "sottosezione")
+        text.insert("end", "   • Clicca sull'intestazione di qualsiasi colonna (Data, Importo, Categoria, tipo, descrizione) per ordinare i dati.\n")
+        text.insert("end", "   • L'ordinamento gestisce correttamente date e numeri, e alterna la direzione (Ascendente/Discendente).\n\n")
+        text.insert("end", "   • Funzione Universale (Dettaglio): Fai doppio click su una riga in **Qualsiasi Treeview**\n     (es. Ricorrenze, Report Mese Dettagliato, Mese/Anno Totali, Grafici, etc.) per ottenere l'azione di dettaglio logica\n     per quel contesto. Ad esempio, aprire il dettaglio del record in un *sottomenu* o visualizzare la sua posizione\n     nel Treeview principale.\n")
+        text.insert("end", "2. Scorrimento con Mouse (Scroll):\n", "sottosezione")
+        text.insert("end", "   • Tutte le tabelle e le aree di testo scorribili supportano lo scorrimento **ovunque** tramite la rotella del mouse,\n     senza la necessità di cliccare prima sulla barra di scorrimento.\n\n")
+        text.tag_config("titolo", foreground="darkblue", font=("Courier New", 12, "bold"))
         text.tag_config("versione", foreground="blue", font=("Courier New", 10, "italic"))
         text.tag_config("sezione", foreground="darkgreen", font=("Courier New", 10, "bold"))
+        text.tag_config("sottosezione", foreground="darkorange", font=("Courier New", 10, "bold"))
+        
         text.tag_config("email", foreground="blue", underline=1)
         text.tag_bind("email", "<Button-1>", apri_email)
+        
         text.tag_config("link", foreground="blue", underline=1)
         text.tag_bind("link", "<Button-1>", apri_link_python)
 
-        text.config(state="disabled")
+        text.config(state="disabled")    
 
         btn_aggiorna = ttk.Button(info_win, text="🔄 Aggiorna Software", command=lambda: self.aggiorna(GITHUB_FILE_URL, NOME_FILE), style='Verde.TButton')
         btn_aggiorna.pack(side="left", padx=100, pady=10)
@@ -5873,7 +5812,7 @@ class GestioneSpese(tk.Tk):
 
         info_win.withdraw()
         info_win.update_idletasks()
-        min_w, min_h = 1160, 620
+        min_w, min_h = 1160, 650
         w = max(info_win.winfo_width(), min_w)
         h = max(info_win.winfo_height(), min_h)
         x = self.winfo_rootx() + (self.winfo_width() // 2) - (w // 2)
@@ -6070,7 +6009,7 @@ class GestioneSpese(tk.Tk):
                     lines = txt.get("1.0", tk.END)
                     f.write(lines)
                 preview_win.destroy()
-                self.show_custom_warning("Esportazione completata", f"Statistiche esportate in\n{file}")
+                self.show_custom_warning("Esportazione completata", f"Riepilogo esportate in\n{file}")
         
         def esporta_preview():
             preview_win = tk.Toplevel(win)
@@ -6373,7 +6312,7 @@ class GestioneSpese(tk.Tk):
 
                         f.write("\n")
 
-                self.show_custom_warning("Esportazione", f"Statistiche esportate correttamente in:\n{file_path}")
+                self.show_custom_warning("Esportazione", f"Riepilogo esportato correttamente in:\n{file_path}")
             except Exception as e:
                 self.show_custom_warning("Errore", f"Errore durante il salvataggio:\n{e}")
 
@@ -7446,7 +7385,8 @@ class GestioneSpese(tk.Tk):
         self.update_stats()
         self.estratto_month_var.set(f"{giorno.month:02d}")
         self.estratto_year_var.set(str(giorno.year))
-        self.stats_label.config(text=f"Statistiche giornaliere - {giorno.strftime('%d-%m-%Y')}")
+        self.stats_label.config(text=f"Riepilogo Giornaliero - {giorno.strftime('%d-%m-%Y')}", foreground="purple",
+    font=("Arial", 10, "bold"))
 
     def rubrica_app(self):
         root = tk.Toplevel()
@@ -8263,7 +8203,7 @@ class GestioneSpese(tk.Tk):
                 "tipo": None
             }
             title = f"Movimenti Ricorrenti: {categoria_selezionata} ({anno_selezionato})"
-            self.show_transactions_detail_popup(data_filter, title)
+            self.mostra_transazioni_popup(data_filter, title)
         self.tree.bind("<<TreeviewSelect>>", on_tree_select)
         self.tree.bind("<Double-1>", on_tree_select)
         style = ttk.Style() 
@@ -8541,7 +8481,8 @@ class GestioneSpese(tk.Tk):
             self.cal.selection_set(giorno)
             self.cal._sel_date = giorno
         self.update_stats()
-        self.stats_label.config(text=f"Statistiche giornaliere - {giorno.strftime('%d-%m-%Y')}")
+        self.stats_label.config(text=f"Riepilogo Giornaliero - {giorno.strftime('%d-%m-%Y')}", foreground="purple",
+    font=("Arial", 10, "bold"))
 
     def on_stats_table_double_click(self, event):
         mode = self.stats_mode.get()
@@ -8714,7 +8655,8 @@ class GestioneSpese(tk.Tk):
         self.stats_refdate = giorno
         self.estratto_month_var.set(f"{giorno.month:02d}")
         self.estratto_year_var.set(str(giorno.year))
-        self.stats_label.config(text=f"Statistiche giornaliere - {giorno.strftime('%d-%m-%Y')}")
+        self.stats_label.config(text=f"Riepilogo Giornaliero - {giorno.strftime('%d-%m-%Y')}", foreground="purple",
+    font=("Arial", 10, "bold"))
         self.after_idle(self.update_stats)
         try:
             popup.destroy()
@@ -9840,7 +9782,6 @@ class GestioneSpese(tk.Tk):
                self.show_custom_warning("Nessuna selezione", "⚠️ Seleziona almeno una categoria da aggiungere.")
                return
     
-
             for cat in pulite:
                 tipo = TIPO_SUGGERITI.get(cat, "Uscita")
                 if cat not in self.categorie:
@@ -9852,7 +9793,6 @@ class GestioneSpese(tk.Tk):
             self.save_db()
             self.show_custom_warning("Aggiunta completata", "⚠️ Categorie aggiunte correttamente..")
             finestra.destroy()
-
         btn_frame = tk.Frame(finestra, bg="white")
         btn_frame.pack(pady=(0, 12))
         ttk.Button(btn_frame, text="➕ Aggiungi", style="Verde.TButton", command=aggiungi_categorie_scelte).pack(side="left", padx=8)
@@ -9894,7 +9834,6 @@ class GestioneSpese(tk.Tk):
             except:
                 pass
         vcmd = (finestra.register(lambda val: val.isdigit() or val == ""), "%P")
-
         ttk.Label(finestra, text="Porta Webserver:").pack(pady=(12, 4))
         entry_porta = ttk.Entry(finestra, justify="center", font=("Segoe UI", 12), validate="key", validatecommand=vcmd)
         entry_porta.insert(0, porta_corrente)
@@ -9910,8 +9849,6 @@ class GestioneSpese(tk.Tk):
         ttk.Button(btn_frame, text="💾 Salva", command=salva_porta, style='Verde.TButton').pack(side="left", padx=5)
         ttk.Button(btn_frame, text="❌ Chiudi", command=finestra.destroy, style='Giallo.TButton').pack(side="left", padx=5)
 
-
-
     def get_ip_locale(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
@@ -9926,7 +9863,7 @@ class GestioneSpese(tk.Tk):
     def start_web_server(self):
         server = HTTPServer(('0.0.0.0', PORTA), CasaFacileWebHandler)
         server.app = self  
-        print("🌐 Web server pronto su http://localhost:8081")
+        print(f"🌐 Web server pronto su http://localhost:{PORTA}")
         server.serve_forever()
 
     def html_login(self, path):
@@ -10012,7 +9949,7 @@ class GestioneSpese(tk.Tk):
 
     def pagina_risultati_avanzati(self, params):
         from datetime import datetime
-
+        from collections import defaultdict 
         categoria = params.get("categoria", [""])[0].strip().lower()
         anno = params.get("anno", [""])[0].strip()
         mese = params.get("mese", [""])[0].strip()
@@ -10020,56 +9957,94 @@ class GestioneSpese(tk.Tk):
         min_importo = float(params.get("min_importo", ["0"])[0] or 0)
         max_importo = float(params.get("max_importo", ["999999"])[0] or 999999)
         query = params.get("q", [""])[0].strip().lower()
-    
         risultati_categorizzati = defaultdict(list)
         for data in sorted(self.spese.keys(), reverse=True):
-            if anno and str(data.year) != anno: continue
-            if mese and f"{data.month:02d}" != mese: continue
-    
-            for voce in self.spese[data]:
-                if len(voce) < 4: continue
-                cat, descrizione, importo, tipo_voce = voce
-                if categoria and cat.strip().lower() != categoria: continue
-                if tipo and tipo_voce.strip().lower() != tipo: continue
-                if not (min_importo <= importo <= max_importo): continue
-                if query and not (query in descrizione.lower() or query in tipo_voce.lower() or query in cat.lower() or query in str(importo)):
+            if anno and str(data.year) != anno:
+                continue
+            if mese and f"{data.month:02d}" != mese:
+                continue
+            for idx_voce, voce in enumerate(self.spese[data]):
+                if len(voce) < 4:
                     continue
-                risultati_categorizzati[cat].append((
-                    data.strftime("%d-%m-%Y"),
-                    html_escape.escape(descrizione),
-                    float(importo),
-                    tipo_voce.strip()
-                ))
-    
-        entrate_totali = sum(v[2] for vlist in risultati_categorizzati.values() for v in vlist if v[3].lower() == "entrata")
-        uscite_totali = sum(v[2] for vlist in risultati_categorizzati.values() for v in vlist if v[3].lower() != "entrata")
+                cat, descrizione, importo, tipo_voce = voce[:4]
+                if categoria and cat.strip().lower() != categoria:
+                    continue
+                if tipo and tipo_voce.strip().lower() != tipo:
+                    continue
+                if not (min_importo <= importo <= max_importo):
+                    continue
+                if query and not (
+                    query in descrizione.lower()
+                    or query in tipo_voce.lower()
+                    or query in cat.lower()
+                    or query in str(importo)
+                ):
+                    continue
+                risultati_categorizzati[cat].append(
+                    (
+                        data.strftime("%d-%m-%Y"),
+                        html_escape.escape(descrizione),
+                        float(importo),
+                        tipo_voce.strip(),
+                        idx_voce,
+                    )
+                )
+
+        entrate_totali = sum(
+            v[2]
+            for vlist in risultati_categorizzati.values()
+            for v in vlist
+            if v[3].lower() == "entrata"
+        )
+        uscite_totali = sum(
+            v[2]
+            for vlist in risultati_categorizzati.values()
+            for v in vlist
+            if v[3].lower() != "entrata"
+        )
         saldo = entrate_totali - uscite_totali
         colore = "#3c763d" if saldo >= 0 else "#a94442"
         anno_corrente = datetime.now().year
-    
         schede_html = ""
-        for idx, (cat, voci) in enumerate(sorted(risultati_categorizzati.items())):
-            totale_cat = sum(imp if tipo_voce.lower() == "entrata" else -imp for _, _, imp, tipo_voce in voci)
+        for idx_cat, (cat, voci) in enumerate(sorted(risultati_categorizzati.items())):
+            totale_cat = sum(
+                imp if tipo_voce.lower() == "entrata" else -imp
+                for _, _, imp, tipo_voce, _ in voci
+            )
             voce_html = ""
-            for data, descrizione, importo, tipo_voce in voci:
+            for data, descrizione, importo, tipo_voce, idx_voce in voci:
                 simbolo = "+" if tipo_voce.lower() == "entrata" else "−"
                 colore_tipo = "#007E33" if tipo_voce.lower() == "entrata" else "#D8000C"
                 voce_html += f"""
-                    <li>
-                        {data} • {descrizione} 
-                        <span style='color:#000; font-weight:bold;'>{simbolo}€{importo:.2f}</span>
-                        <strong style='color:{colore_tipo};'>[{tipo_voce}]</strong>
-                    </li>
+                <li>
+                    <form method="get" action="/modifica" style="display:inline;">
+                        <input type="hidden" name="data" value="{data}">
+                        <input type="hidden" name="idx" value="{idx_voce}">
+                        <button type="submit" style="margin-right:4px;" title="Modifica">✏️</button>
+                    </form>
+                    <form onsubmit="
+                        event.preventDefault();
+                        fetch('/cancella', {{
+                            method: 'POST',
+                            headers: {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
+                            body: 'data={data}&idx={idx_voce}'
+                        }}).then(function() {{ window.location.reload(); }});
+                    " style="display:inline;">
+                        <button type="submit" style="margin-right:8px;color:#D8000C;" title="Cancella">❌</button>
+                    </form>
+                    {data} • {descrizione} 
+                    <span style='color:#000; font-weight:bold;'>{simbolo}€{importo:.2f}</span>
+                    <strong style='color:{colore_tipo};'>[{tipo_voce}]</strong>
+                </li>
                 """
             simbolo_totale = "➕" if totale_cat >= 0 else "➖"
             colore_totale = "#007E33" if totale_cat >= 0 else "#D8000C"
-    
             schede_html += f"""
             <div class="categoria-blocco">
                 <button class="toggle-btn" onclick="toggleCategoria(this)">
                     <span class="freccia">➤</span> <span class="etichetta">{html_escape.escape(cat)}</span>
                 </button>
-    
+
                 <div class="riepilogo-riga" style="color:{colore_totale};">
                     {simbolo_totale} Totale: <strong>€{totale_cat:.2f}</strong> • Voci: <strong>{len(voci)}</strong>
                 </div>
@@ -10078,7 +10053,6 @@ class GestioneSpese(tk.Tk):
                 </div>
             </div>
             """
-    
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -10240,6 +10214,7 @@ class GestioneSpese(tk.Tk):
                     <a href="/stats">📊 Report Mese</a>
                     <a href="/report_annuo">📅 Report Annuale</a>
                     <a href="/menu_esplora">🔍 Esplora</a>
+                    <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
                     <a href="/utenze?anno={anno_corrente}">💧 Utenze</a>
                     <a href="/logoff">🔓 Logout</a>
                 </div>
@@ -10278,15 +10253,13 @@ class GestioneSpese(tk.Tk):
         )
         today = datetime.date.today().isoformat()
         anno_corrente = datetime.date.today().year
-
         entrate_mese = 0.0
         uscite_mese = 0.0
         oggi = datetime.date.today()
-        
         for data_spesa, voci in self.spese.items():
             if data_spesa.month == oggi.month and data_spesa.year == oggi.year:
                 for voce in voci:
-                    _, _, importo, tipo = voce
+                    categoria, descrizione, importo, tipo = voce[:4]
                     if tipo == "Entrata":
                         entrate_mese += importo
                     else: 
@@ -10294,7 +10267,6 @@ class GestioneSpese(tk.Tk):
         
         saldo_mese = entrate_mese - uscite_mese
         saldo_colore = "#3c763d" if saldo_mese >= 0 else "#c43b2e" 
-
         return f"""
         <!DOCTYPE html>
         <html>
@@ -10388,7 +10360,6 @@ class GestioneSpese(tk.Tk):
                 .input-errore {{
                     border: 2px solid red;
                 }}
-
                 .errore-msg {{
                     color: #a94442;
                     font-size: 0.95em;
@@ -10396,15 +10367,12 @@ class GestioneSpese(tk.Tk):
                     margin-top: -10px;
                     margin-bottom: 10px;
                 }}
-
                 input.input-errore + .errore-msg {{
                     display: block;
                 }}
-                
-                /* Stili per il riepilogo del mese */
                 .monthly-summary-container {{
-                    background-color: #e6f2ff; /* Light blue background */
-                    border: 1px solid #b3d9ff; /* Blue border */
+                    background-color: #e6f2ff; 
+                    border: 1px solid #b3d9ff; 
                     border-radius: 8px;
                     padding: 15px;
                     margin-bottom: 20px;
@@ -10415,32 +10383,32 @@ class GestioneSpese(tk.Tk):
                     justify-content: space-between;
                     align-items: center;
                     cursor: pointer;
-                    margin-bottom: 10px; /* Spazio tra header e contenuto quando aperto */
+                    margin-bottom: 10px; 
                 }}
                 .monthly-summary-header h3 {{
                     margin: 0;
-                    color: #005ea6; /* Darker blue for heading */
-                    font-size: 1.0em; /* RIDOTTO: Era 1.2em, ora 1.0em */
+                    color: #005ea6; 
+                    font-size: 1.0em; 
                 }}
                 .arrow {{
                     width: 0;
                     height: 0;
                     border-left: 8px solid transparent;
                     border-right: 8px solid transparent;
-                    border-top: 8px solid #005ea6; /* Freccia rivolta in basso */
-                    transition: transform 0.3s ease; /* Transizione per l'animazione della freccia */
+                    border-top: 8px solid #005ea6; 
+                    transition: transform 0.3s ease; 
                 }}
                 .arrow.up {{
-                    transform: rotate(180deg); /* Ruota la freccia in su */
+                    transform: rotate(180deg); 
                 }}
                 .monthly-summary-content {{
-                    max-height: 0; /* Nascondi il contenuto inizialmente */
+                    max-height: 0; 
                     overflow: hidden;
-                    transition: max-height 0.3s ease-out, margin-top 0.3s ease-out; /* Transizione per l'apertura/chiusura */
+                    transition: max-height 0.3s ease-out, margin-top 0.3s ease-out;
                 }}
                 .monthly-summary-content.open {{
-                    max-height: 200px; /* Altezza massima per il contenuto aperto (regola se necessario) */
-                    margin-top: 10px; /* Spazio dall'header quando aperto */
+                    max-height: 200px; 
+                    margin-top: 10px; 
                 }}
                 .monthly-summary-content p {{
                     margin: 5px 0;
@@ -10448,13 +10416,13 @@ class GestioneSpese(tk.Tk):
                     font-weight: bold;
                 }}
                 .income-value {{
-                    color: #3c763d; /* Green for income */
+                    color: #3c763d; 
                 }}
                 .expense-value {{
-                    color: #c43b2e; /* Red for expense */
+                    color: #c43b2e; 
                 }}
                 .balance-value {{
-                    color: #0078D4; /* Blue for balance, adjust based on saldo_colore if dynamic */
+                    color: #0078D4; 
                 }}
             </style>
             <script>
@@ -10470,7 +10438,6 @@ class GestioneSpese(tk.Tk):
                     }}
                 }});
             </script>
-            
             <script>
               document.addEventListener("DOMContentLoaded", function () {{
                 const form = document.getElementById("spesaForm");
@@ -10478,40 +10445,30 @@ class GestioneSpese(tk.Tk):
                 const summaryHeader = document.getElementById("summaryHeader");
                 const summaryContent = document.getElementById("summaryContent");
                 const arrow = document.getElementById("summaryArrow");
-
-                // Inizialmente nascondi il contenuto del riepilogo
                 summaryContent.classList.remove("open");
                 arrow.classList.remove("up");
-                summaryHeader.style.marginBottom = "0"; // Nessun margine quando chiuso
-
+                summaryHeader.style.marginBottom = "0"; 
                 summaryHeader.addEventListener("click", function() {{
                     summaryContent.classList.toggle("open");
                     arrow.classList.toggle("up");
-                    // Rimuovi o aggiungi il margine in base allo stato aperto/chiuso
                     if (summaryContent.classList.contains("open")) {{
                         summaryHeader.style.marginBottom = "10px";
                     }} else {{
                         summaryHeader.style.marginBottom = "0";
                     }}
                 }});
-
                 form.addEventListener("submit", function () {{
-                  // Ottieni i valori dal form
                   const categoria = form.categoria.value;
                   const importo = form.importo.value;
-
-                  // Mostra il messaggio con categoria e importo
                   msg.textContent = `✅ Inserita: ${{categoria}} €${{importo}}`;
                   msg.style.color = "black";
                   msg.style.display = "block";
-
                   setTimeout(() => {{
                     msg.style.display = "none";
                   }}, 8000);
                 }});
               }});
             </script>
-
         </head>
         <body>
             <header>
@@ -10522,15 +10479,14 @@ class GestioneSpese(tk.Tk):
                     <a href="/stats">📊 Report Mese</a>
                     <a href="/report_annuo">📅 Report Annuale</a>
                     <a href="/menu_esplora">🔍 Esplora</a>
+                    <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
                     <a href="/utenze?anno={anno_corrente}">💧 Utenze</a>
                     <a href="/logoff">🔓 Logout</a>
                 </div>
                 <div class="header-title">🏠 Casa Facile Web</div>
             </header>
             <main>
-            
                 <div id="successMessage" style="display:none; color:green;">✅ Inserito</div>
-
                 <div class="monthly-summary-container">
                     <div class="monthly-summary-header" id="summaryHeader">
                         <h3>Riepilogo Mese Corrente</h3>
@@ -10542,17 +10498,13 @@ class GestioneSpese(tk.Tk):
                         <p>Saldo: <span class="balance-value" style="color:{saldo_colore};">€{saldo_mese:.2f}</span></p>
                     </div>
                 </div>
-
                 <form method="post" action="/" id="spesaForm">
                     <label for="data">Data:</label>
                     <input name="data" type="date" value="{today}">
-                
                     <label for="categoria">Categoria:</label>
                     <select name="categoria">{categorie_options}</select>
-
                     <label for="descrizione">Descrizione:</label>
                     <input name="descrizione" placeholder="Es: Pizza o bollette">
-
                     <label for="importo">Importo:</label>
                     <input
                         name="importo"
@@ -10565,13 +10517,11 @@ class GestioneSpese(tk.Tk):
                         oninput="this.classList.remove('input-errore')"
                     >
                     <span class="errore-msg">⚠️ Inserisci un importo valido</span>
-
                     <label for="tipo">Tipo:</label>
                     <select name="tipo">
                         <option value="Uscita">Uscita</option>
                         <option value="Entrata">Entrata</option>
                     </select>
-
                     <input type="submit" value="➕ Aggiungi Voce">
                 </form>
             </main>
@@ -10602,7 +10552,6 @@ class GestioneSpese(tk.Tk):
                 data = json.loads(contenuto)
         except Exception as e:
             return f"<p>❌ Errore nel file JSON: {e}</p>"
-
         letture = data.get("letture_salvate", {})
         anno_corrente = datetime.now().year
         anni_disponibili = [str(anno_corrente - i) for i in range(6)]
@@ -10612,9 +10561,7 @@ class GestioneSpese(tk.Tk):
             selected = " selected" if a == str(anno) else ""
             select_html += f"<option value='{a}'{selected}>{a}</option>"
         select_html += "</select></form>"
-
         oggi = datetime.now()
-
         html = f"""<!DOCTYPE html>
     <html lang="it">
     <head>
@@ -10752,6 +10699,7 @@ class GestioneSpese(tk.Tk):
           <a href="/stats">📊 Report Mese</a>
           <a href="/report_annuo">📅 Report Annuale</a>
           <a href="/menu_esplora">🔍 Esplora</a>
+          <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
           <a href="/utenze?anno={anno_corrente}">💧 Utenze</a>
           <a href="/logoff">🔓 Logout</a>
         </div>
@@ -10809,14 +10757,10 @@ class GestioneSpese(tk.Tk):
             "07": "Luglio", "08": "Agosto", "09": "Settembre",
             "10": "Ottobre", "11": "Novembre", "12": "Dicembre"
         }
-        
         mesi = [f"{m:02d} - {mesi_it_map[f'{m:02d}']}" for m in range(1, 13)]
-        
         categorie = sorted(set(self.categorie))
-        
         anno_corrente = datetime.date.today().year
         anni = [str(anno) for anno in range(anno_corrente, anno_corrente - 6, -1)] 
-
         html_code = f"""
         <!DOCTYPE html>
         <html lang="it">
@@ -10834,7 +10778,7 @@ class GestioneSpese(tk.Tk):
                 header {{
                     background: #0078D4;
                     color: white;
-                    padding: 20px 0; /* Consistent with other pages */
+                    padding: 20px 0; 
                     position: relative;
                 }}
                 .header-title {{
@@ -10886,16 +10830,16 @@ class GestioneSpese(tk.Tk):
                     font-weight: bold;
                     display: block;
                     margin-top: 15px;
-                    margin-bottom: 8px; /* Increased margin-bottom */
+                    margin-bottom: 8px;
                     color: #333;
-                    font-size: 0.95em; /* Slightly smaller for compactness */
+                    font-size: 0.95em;
                 }}
                 input[type="text"], input[type="number"], select {{
                     width: 100%;
-                    padding: 12px; /* Increased padding for better touch target */
+                    padding: 12px; 
                     font-size: 1em;
                     border: 1px solid #ccc;
-                    border-radius: 6px; /* Softer corners */
+                    border-radius: 6px; 
                     box-sizing: border-box;
                     background-color: #fff;
                     transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -10906,14 +10850,14 @@ class GestioneSpese(tk.Tk):
                     box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
                 }}
                 button[type="submit"] {{
-                    margin-top: 30px; /* More space above submit button */
+                    margin-top: 30px; 
                     width: 100%;
                     background: #0078D4;
                     color: white;
-                    padding: 15px; /* Larger touch target */
+                    padding: 15px; 
                     font-size: 1.1em;
                     border: none;
-                    border-radius: 8px; /* Softer corners */
+                    border-radius: 8px; 
                     cursor: pointer;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                     transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -10922,23 +10866,23 @@ class GestioneSpese(tk.Tk):
                     background: #005ea6;
                     box-shadow: 0 4px 10px rgba(0,0,0,0.15);
                 }}
-                .collapsible-container {{ /* New container for toggle and content */
+                .collapsible-container {{ 
                     margin-top: 25px;
-                    border-top: 1px solid #eee; /* Subtle separator */
+                    border-top: 1px solid #eee; 
                     padding-top: 15px;
                 }}
                 .collapsible-toggle {{
                     background: none;
                     border: none;
-                    font-size: 1.05em; /* Slightly larger font */
+                    font-size: 1.05em; 
                     color: #0078D4;
                     display: flex;
                     align-items: center;
-                    gap: 8px; /* Increased gap for icon */
+                    gap: 8px; 
                     font-weight: bold;
                     cursor: pointer;
-                    width: 100%; /* Full width for better tap area */
-                    padding: 10px 0; /* Padding for tap area */
+                    width: 100%; 
+                    padding: 10px 0; 
                     box-sizing: border-box;
                     text-align: left;
                 }}
@@ -10955,12 +10899,11 @@ class GestioneSpese(tk.Tk):
                     display: none;
                     margin-top: 10px;
                     padding-top: 10px;
-                    /* border-top: 1px dashed #ccc; Removed as it's now on .collapsible-container */
                 }}
                 .collapsible-open .collapsible-content {{
                     display: block;
                 }}
-                .back-button {{ /* Unified style for the back button */
+                .back-button {{ 
                     display: block;
                     text-align: center;
                     font-size: 1em;
@@ -10970,7 +10913,7 @@ class GestioneSpese(tk.Tk):
                     padding: 12px;
                     border-radius: 8px;
                     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                    margin: 20px auto 0 auto; /* Margin above, auto for horizontal centering */
+                    margin: 20px auto 0 auto; 
                     width: 200px;
                     transition: background-color 0.2s ease, box-shadow 0.2s ease;
                 }}
@@ -10978,8 +10921,6 @@ class GestioneSpese(tk.Tk):
                     background-color: #005ea6;
                     box-shadow: 0 6px 12px rgba(0,0,0,0.15);
                 }}
-
-                /* Media Queries for Responsiveness */
                 @media (max-width: 600px) {{
                     header {{
                         padding: 20px 0;
@@ -11019,7 +10960,6 @@ class GestioneSpese(tk.Tk):
                     const menu = document.getElementById("extraMenu");
                     menu.style.display = (menu.style.display === "block") ? "none" : "block";
                 }}
-                // Close menu when clicking outside
                 document.addEventListener("click", function(event) {{
                     const menu = document.getElementById("extraMenu");
                     const isClickInside = event.target.closest(".menu-button, #extraMenu");
@@ -11027,7 +10967,6 @@ class GestioneSpese(tk.Tk):
                         menu.style.display = "none";
                     }}
                 }});
-
                 function toggleCollapsible(button) {{
                     const container = button.parentNode;
                     container.classList.toggle('collapsible-open');
@@ -11043,6 +10982,7 @@ class GestioneSpese(tk.Tk):
                     <a href="/stats">📊 Report Mese</a>
                     <a href="/report_annuo">📅 Report Annuale</a>
                     <a href="/menu_esplora">🔍 Esplora</a>
+                    <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
                     <a href="/utenze?anno={datetime.date.today().year}">💧 Utenze</a>
                     <a href="/logoff">🔓 Logout</a>
                 </div>
@@ -11050,52 +10990,42 @@ class GestioneSpese(tk.Tk):
             </header>
             <main>
                 <form method='get' action='/cerca_avanzata'>
-
                     <label for='categoria'>Categoria:</label>
                     <select name='categoria'>
                         <option value=''>-- Qualsiasi --</option>
-                        {''.join(f"<option value='{html.escape(cat)}'>{html.escape(cat)}</option>" for cat in categorie)}
+                        {''.join(f"<option value='{html.escape(str(cat))}'>{html.escape(str(cat))}</option>" for cat in categorie)}
                     </select>
-
                     <label for='tipo'>Tipo:</label>
                     <select name='tipo'>
                         <option value=''>-- Qualsiasi --</option>
                         <option value='Entrata'>Entrata</option>
                         <option value='Uscita'>Uscita</option>
                     </select>
-
                     <label for='anno'>Anno:</label>
                     <select name='anno'>
                         <option value=''>-- Tutti --</option>
                         {''.join(f"<option value='{html.escape(a)}'>{html.escape(a)}</option>" for a in anni)}
                     </select>
-
                     <label for='mese'>Mese:</label>
                     <select name='mese'>
                         <option value=''>-- Tutti --</option>
                         {''.join(f"<option value='{m.split(' - ')[0]}'>{m}</option>" for m in mesi)}
                     </select>
-
                     <div class="collapsible-container">
                         <button type="button" class="collapsible-toggle" onclick="toggleCollapsible(this)">
                             <span class="arrow">▶️</span> Filtri aggiuntivi
                         </button>
-
                         <div class="collapsible-content">
                             <label for='min_importo'>Importo minimo (€):</label>
                             <input type='number' name='min_importo' step='0.01' placeholder='es: 10.50'>
-
                             <label for='max_importo'>Importo massimo (€):</label>
                             <input type='number' name='max_importo' step='0.01' placeholder='es: 100.00'>
-
                             <label for='q'>Testo libero (descrizione):</label>
                             <input type='text' name='q' placeholder='es: pane, bolletta, abbonamento'>
                         </div>
                     </div>
-
                     <button type='submit'>🔍 Avvia Esplorazione</button>
                 </form>
-
                 <a href="/" class="back-button">🏠 Torna alla Home</a>
             </main>
         </body>
@@ -11103,23 +11033,86 @@ class GestioneSpese(tk.Tk):
         """
         return html_code
 
-    def pagina_statistiche_annuali_web(self):
+    def add_categoria_web(self, params):
+        nome = params.get("nome_categoria", [""])[0].strip()
+        tipo = params.get("tipo_categoria", ["Uscita"])[0]
+        if not nome or nome in self.categorie or nome == self.CATEGORIA_RIMOSSA:
+            print(f"Errore: Categoria '{nome}' già esistente o non valida.")
+            return self.html_gestione_categorie()
+        self.categorie.append(nome)
+        self.categorie_tipi[nome] = tipo
+        self.categorie.sort()
+        self.save_db()
+        self.refresh_categorie_web()
+        
+    def modifica_categoria_web(self, params):
+        old_nome = params.get("categoria_selezionata", [""])[0]
+        new_nome = params.get("nuovo_nome", [""])[0].strip()
+        nuovo_tipo = params.get("nuovo_tipo", ["Uscita"])[0]
+        if not old_nome or old_nome == "Generica":
+            return
+        if new_nome == old_nome:
+            self.categorie_tipi[new_nome] = nuovo_tipo
+        else:
+            if not new_nome or new_nome in self.categorie:
+                return 
+            idx = self.categorie.index(old_nome)
+            self.categorie[idx] = new_nome
+            self.categorie_tipi[new_nome] = nuovo_tipo
+            self.categorie_tipi.pop(old_nome, None)
+            for d in self.spese:
+                new_entries = []
+                for entry in self.spese[d]:
+                    if entry[0] == old_nome:
+                        entry = (new_nome,) + entry[1:]
+                    new_entries.append(entry)
+                self.spese[d] = new_entries
+            self.categorie.sort()
+        self.save_db()
+        self.refresh_categorie_web()
+        
+    def cancella_categoria_web(self, params):
+        cat_da_cancellare = params.get("categoria_selezionata", [""])[0]
+        if not cat_da_cancellare or cat_da_cancellare not in self.categorie or cat_da_cancellare == "Generica":
+            return
+        self.categorie.remove(cat_da_cancellare)
+        self.categorie_tipi.pop(cat_da_cancellare, None)
+        for d in self.spese:
+            new_entries = []
+            for entry in self.spese[d]:
+                if entry[0] == cat_da_cancellare:
+                    entry = (self.CATEGORIA_RIMOSSA,) + entry[1:]
+                new_entries.append(entry)
+            self.spese[d] = new_entries
+        self.save_db()
+        self.refresh_categorie_web()
+        
+    def refresh_categorie_web(self):
+        self.after(100, self._esegui_aggiornamento_gui)
+        
+    def _esegui_aggiornamento_gui(self):
+        self.load_db()
+        self.aggiorna_combobox_categorie()
+        self.carica_voci_treeview() 
+        if hasattr(self, 'ricorrenza_popup') and self.ricorrenza_popup.winfo_exists():
+            if hasattr(self, 'ric_cat_menu'):
+                self.ric_cat_menu['values'] = sorted(self.categorie)
+        self.refresh_gui()        
+        
+    def html_gestione_categorie(self):
         import datetime
-        oggi = datetime.date.today()
-        anno_corrente = oggi.year
-        # Calcola il report e converte in HTML
-        raw = self.calcola_statistiche_annuali_pura().strip().replace("\n", "<br>")
-        report = raw.replace("🔹 Mese corrente", "<strong><span style='color:#c43b2e;'>🗓️ Mese corrente</span></strong>") \
-                    .replace("🔹 Da inizio anno", "<strong><span style='color:#d48300;'>📆 Da inizio anno</span></strong>") \
-                    .replace("🔹 Proiezione fine anno", "<strong><span style='color:#0078D4;'>📊 Proiezione fine anno</span></strong>") \
-                    .replace("✅ Risparmio previsto", "<strong><span style='color:green;'>💰 Risparmio previsto</span></strong>") \
-                    .replace("⚠️ Possibile extra spesa", "<strong><span style='color:red;'>📉 Possibile extra spesa</span></strong>")
-        return f"""
+        categorie_tipi_js = str(self.categorie_tipi).replace("'", '"')
+        categorie_options = "".join(
+            f"<option value='{cat}'>{cat}</option>" 
+            for cat in sorted(self.categorie, key=lambda x: x.strip().lower())
+        )
+        anno_corrente = datetime.datetime.now().year
+        html = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="utf-8">
-            <title>📊 Report Annuale — {oggi.strftime('%d/%m/%Y')}</title>
+            <title>Gestione Categorie - Casa Facile Web</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
                 body {{
@@ -11135,7 +11128,7 @@ class GestioneSpese(tk.Tk):
                 }}
                 .header-title {{
                     text-align: center;
-                    font-size: 1.5em;
+                    font-size: 1.2em;
                 }}
                 .menu-button {{
                     position: absolute;
@@ -11168,47 +11161,108 @@ class GestioneSpese(tk.Tk):
                     background-color: #f0f0f0;
                 }}
                 main {{
-                    padding: 20px;
-                    max-width: 600px;
+                    padding: 10px;
+                    max-width: 400px;
                     margin: auto;
                 }}
-                .report-box {{
+                .category-box {{
                     background: white;
-                    padding: 20px;
+                    padding: 15px 20px;
+                    margin-bottom: 15px;
                     border-radius: 8px;
-                    box-shadow: 0 0 8px rgba(0,0,0,0.1);
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                    font-size: 1em;
-                    line-height: 1.5em;
-                    font-weight: bold;
+                    box-shadow: 0 0 8px rgba(0,0,0,0.05);
                 }}
-                .back {{
+                details summary {{
+                    cursor: pointer;
+                    list-style: none;
+                    padding: 5px 0;
+                }}
+                details summary::-webkit-details-marker {{
+                    display: none;
+                }}
+                details summary:before {{
+                    content: '▶️'; 
+                    margin-right: 10px;
+                    transition: transform 0.2s;
+                }}
+                details[open] summary:before {{
+                    content: '🔽'; 
+                    transform: rotate(90deg);
+                }}
+                label {{
                     display: block;
-                    text-align: center;
-                    font-size: 1em;
-                    text-decoration: none;
-                    background: #0078D4;
-                    color: white;
-                    padding: 10px;
-                    border-radius: 4px;
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-                    margin: 20px auto;
-                    width: 200px;
+                    margin-top: 10px;
+                    font-weight: bold;
+                    font-size: 0.9em;
                 }}
-                .back:hover {{
+                input[type="text"], select {{
+                    width: 100%;
+                    padding: 8px;
+                    margin-top: 5px;
+                    margin-bottom: 12px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                    box-sizing: border-box;
+                    font-size: 0.9em;
+                }}
+                button[type="submit"] {{
+                    background-color: #0078D4;
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 0.9em;
+                    border-radius: 6px;
+                    padding: 10px;
+                    margin-top: 10px;
+                    display: inline-block;
+                    width: auto;
+                }}
+                button[type="submit"]:hover {{
                     background-color: #005ea6;
+                }}
+                .delete-button {{
+                    background-color: #c43b2e;
+                }}
+                .delete-button:hover {{
+                    background-color: #9c2e25;
                 }}
             </style>
             <script>
+                const CategorieTipi = {categorie_tipi_js};
+
                 function toggleMenu() {{
                     const menu = document.getElementById("extraMenu");
                     menu.style.display = (menu.style.display === "block") ? "none" : "block";
                 }}
+                function aggiornaTipoCategoria() {{
+                    const selector = document.getElementById("categoria_modifica");
+                    const tipoSelect = document.getElementById("nuovo_tipo");
+                    const selectedCat = selector.value;
+                    
+                    if (selectedCat && CategorieTipi[selectedCat]) {{
+                        const tipoCorrente = CategorieTipi[selectedCat];
+                        tipoSelect.value = tipoCorrente;
+                    }} else {{
+                        tipoSelect.value = 'Uscita';
+                    }}
+                }}
                 document.addEventListener("click", function(event) {{
                     const menu = document.getElementById("extraMenu");
-                    if (!event.target.closest(".menu-button, #extraMenu")) {{
+                    const isClickInside = event.target.closest(".menu-button, #extraMenu");
+                    if (!isClickInside) {{
                         menu.style.display = "none";
+                    }}
+                }});
+                document.addEventListener("DOMContentLoaded", function() {{
+                    const categoriaModifica = document.getElementById("categoria_modifica");
+                    if (categoriaModifica) {{
+                        categoriaModifica.addEventListener("change", aggiornaTipoCategoria);
+                        
+                        // Chiama la funzione all'inizio per impostare il tipo corretto
+                        // se un'opzione è selezionata di default (anche se vuota)
+                        if (categoriaModifica.value) {{ 
+                           aggiornaTipoCategoria();
+                        }}
                     }}
                 }});
             </script>
@@ -11222,18 +11276,300 @@ class GestioneSpese(tk.Tk):
                     <a href="/stats">📊 Report Mese</a>
                     <a href="/report_annuo">📅 Report Annuale</a>
                     <a href="/menu_esplora">🔍 Esplora</a>
+                    <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
                     <a href="/utenze?anno={anno_corrente}">💧 Utenze</a>
                     <a href="/logoff">🔓 Logout</a>
                 </div>
-                <div class="header-title">📊 Report del {oggi.strftime('%d/%m/%Y')}</div>
+                <div class="header-title">⚙️ Gestione Categorie</div>
             </header>
             <main>
-                <div class="report-box">{report}</div>
-                <a href="/" class="back">🏠 Torna alla Home</a>
+                <details class="category-box">
+                    <summary style="font-size: 1.1em; font-weight: bold; color: #0078D4;">
+                        ➕ Aggiungi Categoria
+                    </summary>
+                    <form action="/salva_categoria" method="POST">
+                        <input type="hidden" name="operazione" value="aggiungi">
+                        <label for="nome_categoria">Nome:</label>
+                        <input type="text" name="nome_categoria" required>
+                        <label for="tipo_categoria">Tipo:</label>
+                        <select name="tipo_categoria">
+                            <option value="Uscita">Uscita</option>
+                            <option value="Entrata">Entrata</option>
+                        </select>
+                        <button type="submit">➕ Aggiungi</button>
+                    </form>
+                </details>
+                <details class="category-box">
+                    <summary style="font-size: 1.1em; font-weight: bold; color: #0078D4;">
+                        ⚙️ Modifica Categoria
+                    </summary>
+                    <form action="/salva_categoria" method="POST">
+                        <input type="hidden" name="operazione" value="modifica">
+                        <label for="categoria_selezionata">Seleziona:</label>
+                        <select 
+                            name="categoria_selezionata" 
+                            id="categoria_modifica" 
+                            required
+                        >
+                            {categorie_options} 
+                        </select>
+                        <label for="nuovo_nome">Nuovo Nome:</label>
+                        <input type="text" name="nuovo_nome" placeholder="Lascia vuoto per modificare solo il tipo">
+                        <label for="nuovo_tipo">Nuovo Tipo:</label>
+                        <select name="nuovo_tipo" id="nuovo_tipo">
+                            <option value="Uscita">Uscita</option>
+                            <option value="Entrata">Entrata</option>
+                        </select>
+                        <button type="submit">⚙️ Modifica</button>
+                    </form>
+                </details>
+                <details class="category-box" style="border: 1px solid #c43b2e;">
+                    <summary style="font-size: 1.1em; font-weight: bold; color: #c43b2e;">
+                        ❌ Cancella Categoria
+                    </summary>
+                    <form action="/cancella_categoria" method="POST">
+                        <label for="categoria_selezionata">Seleziona:</label>
+                        <select name="categoria_selezionata" required>
+                            {categorie_options}
+                        </select>
+                        <button type="submit" class="delete-button">❌ Cancella</button>
+                    </form>
+                </details>
+                <div style="background-color: #0078D4; text-align: center; margin-top: 20px; padding: 10px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <a href='/' style='font-size:0.9em; text-decoration:none; color:white; display: block; font-weight: bold;'>
+                        🏠 Torna alla Home
+                    </a>
+                </div>
             </main>
         </body>
         </html>
         """
+        return html
+
+    def pagina_statistiche_annuali_web(self):
+        oggi = datetime.date.today()
+        anno_corrente = oggi.year
+        try:
+            raw = self.calcola_statistiche_annuali_pura().strip().replace("\n", "<br>")
+        except Exception:
+            raw = "⚠ Report Testuale: Dati non disponibili (Controlla calcola_statistiche_annuali_pura)."
+        report = raw.replace("🔹 Mese corrente", "<strong><span style='color:#c43b2e;'>🗓️ Mese corrente</span></strong>")
+        report = report.replace("🔹 Da inizio anno", "<strong><span style='color:#d48300;'>📆 Da inizio anno</span></strong>")
+        report = report.replace("🔹 Proiezione fine anno", "<strong><span style='color:#0078D4;'>📊 Proiezione fine anno</span></strong>")
+        report = report.replace("✅ Risparmio previsto", "<strong><span style='color:green;'>💰 Risparmio previsto</span></strong>")
+        report = report.replace("⚠️ Possibile extra spesa", "<strong><span style='color:red;'>📉 Possibile extra spesa</span></strong>")
+        fallback_eu = '{"labels": ["N/D"], "datasets": [{"label": "Dati non caricati", "data": [0], "backgroundColor": ["#ccc"]}]}'
+        try:
+            dati_entrate_uscite = self.get_dati_entrate_uscite_json() 
+        except Exception:
+            dati_entrate_uscite = fallback_eu
+        fallback_cat = '{"labels": ["N/D"], "datasets": [{"data": [1], "backgroundColor": ["#ccc"], "label": "Dati non caricati"}]}'
+        try:
+            dati_categorie = self.get_dati_categorie_json()
+        except Exception:
+            dati_categorie = fallback_cat
+        fallback_saldo = '{"labels": ["N/D"], "datasets": [{"label": "Dati non caricati", "data": [0], "borderColor": "#ccc"}]}'
+        try:
+            dati_saldo = self.get_dati_saldo_json()
+        except Exception:
+            dati_saldo = fallback_saldo
+        html_template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>📊 Report Annuale — {oggi_formattata}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script> 
+    <style>
+        body {{
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+        }}
+        header {{ background: #0078D4; color: white; padding: 20px 0; position: relative; }}
+        .header-title {{ text-align: center; font-size: 1.5em; }}
+        .menu-button {{ position: absolute; top: 10px; left: 10px; font-size: 1.6em; background: none; border: none; color: white; cursor: pointer; }}
+        .dropdown {{ position: absolute; top: 45px; left: 10px; background-color: white; box-shadow: 0 4px 8px rgba(0,0,0,0.15); border-radius: 4px; display: none; z-index: 999; }}
+        .dropdown a {{ display: block; padding: 10px 20px; text-decoration: none; color: #0078D4; font-weight: bold; }}
+        .dropdown a:hover {{ background-color: #f0f0f0; }}
+        main {{ padding: 20px; max-width: 600px; margin: auto; }}
+        .report-box {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); white-space: pre-wrap; word-break: break-word; font-size: 1em; line-height: 1.5em; font-weight: bold; }}
+        .back {{ display: block; text-align: center; font-size: 1em; text-decoration: none; background: #0078D4; color: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin: 20px auto; width: 200px; }}
+        .back:hover {{ background-color: #005ea6; }}
+        .accordion-header {{ background: #e0e0e0; color: #333; padding: 15px; border-radius: 6px; cursor: pointer; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; font-size: 1.1em; font-weight: bold; }}
+        .accordion-header:hover {{ background: #d0d0d0; }}
+        .arrow {{ transition: transform 0.3s ease; font-size: 1.2em; }}
+        .accordion-header.active .arrow {{ transform: rotate(90deg); }}
+        .accordion-content {{ 
+            padding: 0 15px; 
+            border: 1px solid #ddd; 
+            border-top: none; 
+            border-radius: 0 0 8px 8px; 
+            background: white; 
+        }}
+        .tab-pane {{ padding-top: 15px; display: none; }}
+        .tab-pane.active {{ display: block; }}
+        .tab-container {{ display: flex; border-bottom: 2px solid #0078D4; }}
+        .tab-button {{ padding: 10px 15px; cursor: pointer; font-weight: bold; color: #555; border: none; background: #f0f0f0; border-radius: 5px 5px 0 0; margin-right: 2px; }}
+        .tab-button.active {{ background: #0078D4; color: white; }}
+        .chart-container {{
+            position: relative;
+            max-height: 700px; 
+            height: 100vh; 
+            width: 100%;
+            margin: auto;
+        }}
+    </style>
+    <script>
+        function toggleMenu() {{
+            const menu = document.getElementById("extraMenu");
+            menu.style.display = (menu.style.display === "block") ? "none" : "block";
+        }}
+        document.addEventListener("click", function(event) {{
+            const menu = document.getElementById("extraMenu");
+            if (!event.target.closest(".menu-button, #extraMenu")) {{
+                menu.style.display = "none";
+            }}
+        }});
+        function toggleAccordion(header) {{
+            header.classList.toggle("active");
+            const content = header.nextElementSibling;
+            content.style.display = (content.style.display === "none" || content.style.display === "") ? "block" : "none";
+        }}
+        function openTab(tabName, button) {{
+            document.querySelectorAll(".tab-pane").forEach(el => el.classList.remove("active"));
+            document.querySelectorAll(".tab-button").forEach(el => el.classList.remove("active"));
+            document.getElementById(tabName).classList.add("active");
+            button.classList.add("active");
+        }}
+        function drawCharts() {{
+            const dataEntrateUscite = {dati_entrate_uscite_json}; 
+            new Chart(document.getElementById('entrateUsciteChart'), {{
+                type: 'bar',
+                data: dataEntrateUscite,
+                options: {{ 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: {{ title: {{ display: true, text: 'Entrate e Uscite Annuali' }} }} 
+                }}
+            }});
+            const dataCategorie = {dati_categorie_json}; 
+            if (dataCategorie && dataCategorie.labels && dataCategorie.datasets && dataCategorie.datasets.length > 0) {{
+                const combinedData = dataCategorie.labels.map((label, index) => ({{
+                    label: label,
+                    data: dataCategorie.datasets[0].data[index],
+                    backgroundColor: dataCategorie.datasets[0].backgroundColor[index]
+                }}));
+                combinedData.sort((a, b) => a.label.localeCompare(b.label));
+                dataCategorie.labels = combinedData.map(item => item.label);
+                dataCategorie.datasets[0].data = combinedData.map(item => item.data);
+                dataCategorie.datasets[0].backgroundColor = combinedData.map(item => item.backgroundColor);
+            }}
+            new Chart(document.getElementById('categorieChart'), {{
+                type: 'doughnut',
+                data: dataCategorie,
+                options: {{ 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: {{ 
+                        title: {{ display: true, text: 'Spese per Categoria' }},
+                        legend: {{
+                            display: true,
+                            position: 'bottom', 
+                            align: 'start',
+                            maxRows: 99, 
+                            labels: {{
+                                usePointStyle: false, 
+                                boxWidth: 20, 
+                                padding: 5
+                            }}
+                        }}
+                    }} 
+                }}
+            }});
+            const dataSaldo = {dati_saldo_json}; 
+            new Chart(document.getElementById('saldoChart'), {{
+                type: 'line',
+                data: dataSaldo,
+                options: {{ 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: {{ title: {{ display: true, text: 'Saldo Progressivo Mensile' }} }} 
+                }}
+            }});
+        }}
+        document.addEventListener("DOMContentLoaded", () => {{
+            const firstTabButton = document.querySelector('.tab-container .tab-button');
+            if(firstTabButton) {{
+                 firstTabButton.click();
+            }}
+            const accordionContent = document.getElementById("accordionContent");
+            accordionContent.style.display = "none"; 
+            drawCharts();
+        }});
+    </script>
+</head>
+<body>
+    <header>
+        <button class="menu-button" onclick="toggleMenu()">☰</button>
+        <div id="extraMenu" class="dropdown">
+            <a href="/">🏠 Torna alla Home</a>
+            <a href="/lista">📈 Elenca/Modifica</a>
+            <a href="/stats">📊 Report Mese</a>
+            <a href="/report_annuo">📅 Report Annuale</a>
+            <a href="/menu_esplora">🔍 Esplora</a>
+            <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
+            <a href="/utenze?anno={anno_corrente_format}">💧 Utenze</a>
+            <a href="/logoff">🔓 Logout</a>
+        </div>
+        <div class="header-title">📊 Report del {oggi_formattata}</div>
+    </header>
+    <main>
+        <div class="report-box">{report_content}</div>
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            Visualizza Grafici Dettaglio 📊
+            <span class="arrow">▶</span>
+        </div>
+        <div id="accordionContent" class="accordion-content">
+            <div class="tab-content-wrapper">
+                <div class="tab-container">
+                    <button class="tab-button" onclick="openTab('tabEntrateUscite', this)">Entrate/Uscite</button>
+                    <button class="tab-button" onclick="openTab('tabCategorie', this)">Grafico Categorie</button>
+                    <button class="tab-button" onclick="openTab('tabSaldo', this)">Saldo</button>
+                </div>
+                <div class="tab-content">
+                    <div id="tabEntrateUscite" class="tab-pane">
+                        <div class="chart-container">
+                            <canvas id="entrateUsciteChart"></canvas>
+                        </div>
+                    </div>
+                    <div id="tabCategorie" class="tab-pane">
+                        <div class="chart-container">
+                            <canvas id="categorieChart"></canvas>
+                        </div>
+                    </div>
+                    <div id="tabSaldo" class="tab-pane">
+                        <div class="chart-container">
+                            <canvas id="saldoChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <a href="/" class="back">🏠 Torna alla Home</a>
+    </main>
+</body>
+</html>
+"""
+        return html_template.format(
+            oggi_formattata=oggi.strftime('%d/%m/%Y'),
+            anno_corrente_format=anno_corrente,
+            report_content=report,
+            dati_entrate_uscite_json=dati_entrate_uscite,
+            dati_categorie_json=dati_categorie,
+            dati_saldo_json=dati_saldo
+        )
 
     def calcola_statistiche_annuali_pura(self):
         from datetime import date
@@ -11275,27 +11611,22 @@ class GestioneSpese(tk.Tk):
         
  Analisi delle spese attuali e stima
  fino a fine {anno_corr}
- 
- 🔹 Mese corrente ({mese_corr:02}/{anno_corr})
+  🔹 Mese corrente ({mese_corr:02}/{anno_corr})
   • Spese {anno_corr}:  € {tot_mese_corr:,.2f}
   • Spese {anno_prec}:  € {tot_mese_prec:,.2f}
   • Variazione mensile: {variazione_mese_pct:+.1f}%
-
  🔹 Da inizio anno (01/01 → oggi)
   • Totale {anno_corr}:  € {tot_anno_corr:,.2f}
   • Totale {anno_prec}:  € {tot_anno_prec:,.2f}
-
  🔹 Proiezione fine anno
   • Spesa stimata {anno_corr}: € {stima_anno_corr:,.2f}  
   • (⏳ {perc_anno:.1%} dell’anno trascorso)
   • Spesa effettiva {anno_prec}: € {stima_anno_prec:,.2f}
     """
-
         if differenza > 0:
             report += f"\n✅ Risparmio previsto: € {differenza:,.2f} \n   se mantieni questo ritmo 💰"
         else:
             report += f"\n⚠️ Possibile extra spesa: € {abs(differenza):,.2f}\n   rispetto al {anno_prec} 🪙"
-
         return report.strip()
 
     def stats_mensili_html(self):
@@ -11309,21 +11640,18 @@ class GestioneSpese(tk.Tk):
         mese_en = oggi.strftime('%B')
         mese_it_corrente = mesi_it.get(mese_en, mese_en)
         titolo_mese = f"{mese_it_corrente.capitalize()} {oggi.year}"
-
         entrate = 0.0
         uscite = 0.0
         entrate_categorie = {}
         uscite_categorie = {}
         raw_entrate_dettaglio = {}
         raw_uscite_dettaglio = {}
-
         entrate_count = {}
         uscite_count = {}
-
         for d, voci in self.spese.items():
             if d.month == oggi.month and d.year == oggi.year:
                 for voce in voci:
-                    categoria, descrizione, importo, tipo = voce
+                    categoria, descrizione, importo, tipo = voce[:4]
                     if tipo == "Entrata":
                         entrate += importo
                         entrate_categorie[categoria] = entrate_categorie.get(categoria, 0.0) + importo
@@ -11334,7 +11662,6 @@ class GestioneSpese(tk.Tk):
                         uscite_categorie[categoria] = uscite_categorie.get(categoria, 0.0) + importo
                         raw_uscite_dettaglio.setdefault(categoria, []).append((d, descrizione, importo))
                         uscite_count[categoria] = uscite_count.get(categoria, 0) + 1 
-        
         saldo = entrate - uscite
         saldo_colore = "#3c763d" if saldo >= 0 else "#c43b2e" 
 
@@ -11342,7 +11669,6 @@ class GestioneSpese(tk.Tk):
             html_content = ""
             if not categorie_totals:
                 return f"<p class='no-data-msg'>Nessuna {prefix} per categoria da mostrare.</p>"
-
             html_content += "<ul class='category-list'>"
             for cat, totale in sorted(categorie_totals.items()):
                 voci_dettaglio = raw_dettaglio.get(cat, [])
@@ -11358,19 +11684,14 @@ class GestioneSpese(tk.Tk):
                     """
 
                 color_class = "detail-income" if prefix == "entrate" else "detail-expense"
-
                 dettaglio_items_html = ''.join(
                     f'<li class="detail-item"><span class="detail-text">{data.strftime("%d-%m-%Y")}{" — " + desc if desc else ""}</span><span class="detail-amount {color_class}">€{imp:.2f}</span></li>'
-                    for data, desc, imp in voci_dettaglio
+                    for data, desc, imp, *_ in voci_dettaglio
                 )
-
                 if not dettaglio_items_html:
                     dettaglio_items_html = '<li>Nessun dettaglio disponibile.</li>'
-
                 num_operations = counts_dict.get(cat, 0)
-
                 category_name_html = f'<strong class="category-name">{cat} ({num_operations}):</strong>'
-
                 html_content += f"""
                 <li class="category-item">
                     <div class="category-summary">
@@ -11385,10 +11706,8 @@ class GestioneSpese(tk.Tk):
                 """
             html_content += "</ul>"
             return html_content
-
         categorie_uscite_html = genera_html_categorie(uscite_categorie, raw_uscite_dettaglio, "uscite", uscite_count)
         categorie_entrate_html = genera_html_categorie(entrate_categorie, raw_entrate_dettaglio, "entrate", entrate_count)
-
         return f"""
         <!DOCTYPE html>
         <html>
@@ -11520,8 +11839,6 @@ class GestioneSpese(tk.Tk):
                 }}
                 .category-name {{
                     flex-grow: 1;
-                    /* Rimosso white-space: nowrap; e overflow: hidden; text-overflow: ellipsis; */
-                    /* per permettere al nome della categoria di andare a capo se necessario con il conteggio */
                 }}
                 .category-total {{
                     text-align: right;
@@ -11553,7 +11870,6 @@ class GestioneSpese(tk.Tk):
                 .category-arrow.rotated {{
                     transform: rotate(90deg);
                 }}
-
                 ul.category-details {{
                     list-style-type: none;
                     background: #f0f0f0;
@@ -11592,7 +11908,6 @@ class GestioneSpese(tk.Tk):
                     flex-shrink: 0;
                     margin-left: auto;
                 }}
-
                 .section-toggle-button {{
                     display: flex;
                     justify-content: space-between;
@@ -11663,8 +11978,6 @@ class GestioneSpese(tk.Tk):
                     border-radius: 5px;
                     background-color: #f9f9f9;
                 }}
-
-                /* Media Queries for Responsiveness */
                 @media (max-width: 600px) {{
                     .header-title {{
                         font-size: 1.3em;
@@ -11685,7 +11998,6 @@ class GestioneSpese(tk.Tk):
                     .category-summary {{
                         flex-wrap: wrap;
                     }}
-                    /* Permette al nome della categoria di andare a capo se necessario */
                     .category-name {{
                         white-space: normal;
                         overflow: visible;
@@ -11745,18 +12057,15 @@ class GestioneSpese(tk.Tk):
                         menu.style.display = "none";
                     }}
                 }});
-
                 function toggleVisibility(contentId, buttonElement) {{
                     const content = document.getElementById(contentId);
                     const arrow = buttonElement.querySelector('.category-arrow') || buttonElement.querySelector('.arrow');
-                    
                     let isExpanded = false;
                     if (content.classList.contains('collapsible-content')) {{
                         isExpanded = content.classList.contains('active');
                     }} else {{
                         isExpanded = !content.classList.contains('hidden');
                     }}
-
                     if (isExpanded) {{
                         if (content.classList.contains('collapsible-content')) {{
                             content.classList.remove('active');
@@ -11786,6 +12095,7 @@ class GestioneSpese(tk.Tk):
                     <a href="/stats">📊 Report Mese</a>
                     <a href="/report_annuo">📅 Report Annuale</a>
                     <a href="/menu_esplora">🔍 Esplora</a>
+                    <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
                     <a href="/utenze?anno={datetime.date.today().year}">💧 Utenze</a>
                     <a href="/logoff">🔓 Logout</a>
                 </div>
@@ -11798,7 +12108,6 @@ class GestioneSpese(tk.Tk):
                     <li><strong>Uscite Totali:</strong> <span class="expense-color">€{uscite:.2f}</span></li>
                     <li><strong style="color:{saldo_colore};">Saldo:</strong> <span style="color:{saldo_colore};">€{saldo:.2f}</span></li>
                 </ul>
-
                 <button type="button" class="section-toggle-button" onclick="toggleVisibility('usciteCategorieContent', this)" aria-expanded="false" aria-controls="usciteCategorieContent">
                     <span>🧮 Uscite per Categoria</span>
                     <span class="arrow">▶️</span>
@@ -11806,7 +12115,6 @@ class GestioneSpese(tk.Tk):
                 <div id="usciteCategorieContent" class="collapsible-content">
                     {categorie_uscite_html}
                 </div>
-
                 <button type="button" class="section-toggle-button" onclick="toggleVisibility('entrateCategorieContent', this)" aria-expanded="false" aria-controls="entrateCategorieContent">
                     <span>📥 Entrate per Categoria</span>
                     <span class="arrow">▶️</span>
@@ -11814,7 +12122,6 @@ class GestioneSpese(tk.Tk):
                 <div id="entrateCategorieContent" class="collapsible-content">
                     {categorie_entrate_html}
                 </div>
-
                 <a href="/" class="back">🏠 Torna alla Home</a>
             </main>
         </body>
@@ -11832,20 +12139,18 @@ class GestioneSpese(tk.Tk):
         mese_en = oggi.strftime('%B')
         mese_it_corrente = mesi_it.get(mese_en, mese_en)
         titolo_mese = f"{mese_it_corrente.capitalize()} {oggi.year}"
-    
         current_month_expenses = []
         for d, voci in self.spese.items():
             if d.month == oggi.month and d.year == oggi.year:
                 for idx, voce in enumerate(voci):
                     current_month_expenses.append((d, idx, voce))
         current_month_expenses.sort(key=lambda x: x[0], reverse=True)
-    
         if not current_month_expenses:
             schede_html = "<p class='no-data-msg'>Nessuna spesa registrata per questo mese.</p>"
         else:
             schede_html = ""
             for d, idx, voce in current_month_expenses:
-                categoria, descrizione, importo, tipo = voce
+                categoria, descrizione, importo, tipo = voce[:4]
                 data_str = d.strftime('%d-%m-%Y')
                 details_id = f"details_{d.strftime('%Y%m%d')}_{idx}"
                 colore_importo = "#228B22" if tipo.strip().lower() == "entrata" else "#c43b2e"
@@ -11889,7 +12194,6 @@ class GestioneSpese(tk.Tk):
                     </div>
                 </div>
                 """
-    
         return f"""
         <!DOCTYPE html>
         <html>
@@ -12195,6 +12499,7 @@ class GestioneSpese(tk.Tk):
                     <a href="/stats">📊 Report Mese</a>
                     <a href="/report_annuo">📅 Report Annuale</a>
                     <a href="/menu_esplora">🔍 Esplora</a>
+                    <a href="/gestione_categorie">⚙️ Gestione Categorie</a>
                     <a href="/utenze?anno={datetime.date.today().year}">💧 Utenze</a>
                     <a href="/logoff">🔓 Logout</a>
                 </div>
@@ -12215,13 +12520,12 @@ class GestioneSpese(tk.Tk):
         idx = int(params.get("idx", ["0"])[0])
         d_obj = datetime.strptime(data, "%d-%m-%Y").date()
         voce = self.spese[d_obj][idx]
-        categoria_corrente, descrizione, importo, tipo = voce
+        categoria_corrente, descrizione, importo, tipo = voce[:4]
 
         categorie_options = "\n".join(
             f"<option value='{c}' {'selected' if c == categoria_corrente else ''}>{c}</option>"
             for c in sorted(self.categorie)
         )
-
         return f"""
         <html><head><meta charset="utf-8"><title>Modifica</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12276,24 +12580,19 @@ class GestioneSpese(tk.Tk):
                 <form method="post" action="/salva_modifica">
                     <input type="hidden" name="data" value="{data}">
                     <input type="hidden" name="idx" value="{idx}">
-
                     <label for="categoria">Categoria</label>
                     <select name="categoria" required>
                         {categorie_options}
                     </select>
-
                     <label for="descrizione">Descrizione</label>
                     <input name="descrizione" value="{descrizione}">
-
                     <label for="importo">Importo (€)</label>
                     <input name="importo" type="number" step="0.01" min="0.01" value="{importo}" required>
-
                     <label for="tipo">Tipo</label>
                     <select name="tipo">
                         <option value="Entrata" {"selected" if tipo == "Entrata" else ""}>Entrata</option>
                         <option value="Uscita" {"selected" if tipo != "Entrata" else ""}>Uscita</option>
                     </select>
-
                     <button type="submit">💾 Salva</button>
                 </form>
                 <a href="/lista" style="background:#0078D4;color:#fff;padding:10px;border-radius:6px;text-align:center;display:block;text-decoration:none;">🔙 Torna alla lista</a>
@@ -12310,8 +12609,16 @@ class GestioneSpese(tk.Tk):
         imp = float(params.get("importo", ["0"])[0])
         tipo = params.get("tipo", ["Uscita"])[0]
         d_obj = datetime.strptime(data, "%d-%m-%Y").date()
-        self.spese[d_obj][idx] = [cat, descr, imp, tipo]
 
+        originale = self.spese[d_obj][idx]  
+        nuova_voce = [cat, descr, imp, tipo]
+        if len(originale) > 4:
+            nuova_voce.append(originale[4])
+        self.spese[d_obj][idx] = nuova_voce
+        self.save_db()
+        self.carica_db_web()
+        self.refresh_gui() 
+        
     def cancella_voce_web(self, data_str, idx):
         try:
             d_obj = datetime.datetime.strptime(data_str, "%d-%m-%Y").date()
@@ -12362,7 +12669,6 @@ class GestioneSpese(tk.Tk):
         except Exception as e:
             print(f"❌ Errore lettura DB: {e}")
             return
-
         self.spese = {}
         for giorno in dati.get("spese", []):
             try:
@@ -12380,6 +12686,92 @@ class GestioneSpese(tk.Tk):
                 self.spese[d] = entries
             except Exception as ex:
                 print(f"⚠️ Errore parsing giorno {giorno.get('date')}: {ex}")
+
+    def get_dati_entrate_uscite_json(self):
+        oggi = datetime.date.today()
+        anno_corrente = oggi.year
+        entrate_mensili = [0.0] * 12
+        uscite_mensili = [0.0] * 12
+        for data, entries in self.spese.items():
+            if data.year == anno_corrente:
+                mese_indice = data.month - 1  
+                for entry in entries:
+                    categoria = entry[0]
+                    importo = entry[2]
+                    tipo = self.categorie_tipi.get(categoria, 'Uscita') 
+                    if tipo == 'Entrata':
+                        entrate_mensili[mese_indice] += importo
+                    else: 
+                        uscite_mensili[mese_indice] += importo
+        mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+        
+        dati = {
+            'labels': mesi,
+            'datasets': [
+                {'label': 'Entrate (€)', 'data': entrate_mensili, 'borderColor': 'rgba(75, 192, 192, 1)', 'backgroundColor': 'rgba(75, 192, 192, 0.5)'},
+                {'label': 'Uscite (€)', 'data': uscite_mensili, 'borderColor': 'rgba(255, 99, 132, 1)', 'backgroundColor': 'rgba(255, 99, 132, 0.5)'}
+            ]
+        }
+        return json.dumps(dati)
+
+    def get_dati_saldo_json(self):
+        oggi = datetime.date.today()
+        anno_corrente = oggi.year
+        saldo_mensile_netto = [0.0] * 12
+        for data, entries in self.spese.items():
+            if data.year == anno_corrente:
+                mese_indice = data.month - 1
+                for entry in entries:
+                    categoria = entry[0]
+                    importo = entry[2]
+                    tipo = self.categorie_tipi.get(categoria, 'Uscita')
+                    
+                    if tipo == 'Entrata':
+                        saldo_mensile_netto[mese_indice] += importo
+                    else:
+                        saldo_mensile_netto[mese_indice] -= importo
+        saldo_progressivo = []
+        saldo_accumulato = 0.0
+        for saldo_netto in saldo_mensile_netto:
+            saldo_accumulato += saldo_netto
+            saldo_progressivo.append(round(saldo_accumulato, 2))
+        mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+        dati = {
+            'labels': mesi,
+            'datasets': [{
+                'label': 'Saldo Progressivo (€)',
+                'data': saldo_progressivo,
+                'fill': False,
+                'borderColor': 'rgb(75, 192, 192)',
+                'tension': 0.1
+            }]
+        }
+        return json.dumps(dati)
+
+    def get_dati_categorie_json(self):
+        oggi = datetime.date.today()
+        anno_corrente = oggi.year
+        spese_per_categoria = {}
+        for data, entries in self.spese.items():
+            if data.year == anno_corrente:
+                for entry in entries:
+                    categoria = entry[0]
+                    importo = entry[2]
+                    tipo = self.categorie_tipi.get(categoria, 'Uscita')
+                    if tipo == 'Uscita':
+                        spese_per_categoria[categoria] = spese_per_categoria.get(categoria, 0.0) + importo
+        labels = list(spese_per_categoria.keys())
+        spese = [round(v, 2) for v in spese_per_categoria.values()]
+        colori = ['#' + ''.join([random.choice('0123456789ABCDEF') for j in range(6)]) for i in range(len(labels))]
+        dati = {
+            'labels': labels,
+            'datasets': [{
+                'data': spese,
+                'backgroundColor': colori,
+                'hoverOffset': 4
+            }]
+        }
+        return json.dumps(dati)
 
     def refresh_gui(self):
         self.update_stats()
@@ -12511,7 +12903,6 @@ class GestioneSpese(tk.Tk):
             try:
                 response = requests.get(ICON_URL, timeout=10)
                 response.raise_for_status()
-
                 os.makedirs(DB_DIR, exist_ok=True)
                 with open(ICON_PATH, 'wb') as f:
                     f.write(response.content)
@@ -12609,7 +13000,6 @@ class GestioneSpese(tk.Tk):
                 scrollbar.config(command=text_area.yview)
                 
                 ttk.Label(win, text="👉 Vuoi procedere con l'aggiornamento adesso?").pack(pady=(5, 10))
-
 
                 frame_bottoni = ttk.Frame(win)
                 frame_bottoni.pack(pady=10)
@@ -12710,16 +13100,6 @@ def install_tkcalendar():
         from tkcalendar import Calendar, DateEntry
     return Calendar, DateEntry
 
-def install_psutil():
-    try:
-        import psutil
-    except ImportError:
-        print("psutil non trovato. Installazione in corso...")
-        subprocess.run([sys.executable, "-m", "pip", "install", "psutil"], check=True)
-        import psutil
-    return psutil
-psutil = install_psutil()
-
 def install_requests():
     try:
         import requests
@@ -12752,27 +13132,34 @@ def install_win32_libraries():
 
 def check_single_instance():
     if sys.platform.startswith("win"):
-        mutex_name = "Global\\AppMutex"
+        mutex_name = "Global\\CasaFacileWeb_Mutex_34A5B6C7"
         mutex = ctypes.windll.kernel32.CreateMutexW(None, True, mutex_name)
         if ctypes.windll.kernel32.GetLastError() == 183:  
-            print("Un'altra istanza è già in esecuzione!")
+            print("Un'altra istanza è già in esecuzione! (Windows)")
             show_warning_popup()
             sys.exit(1)
-        return  
+        global _mutex_handle
+        _mutex_handle = mutex
+        return 
     else:
-         current_pid = os.getpid()
-         current_script = os.path.abspath(sys.argv[0])
-         for proc in psutil.process_iter(attrs=["pid", "cmdline"]):  
-          try:
-            cmd = proc.info["cmdline"]
-            if cmd and current_script in cmd and proc.info["pid"] != current_pid:
-                print("Un'altra istanza è già in esecuzione!")
-                show_warning_popup()
-                sys.exit(1)
-          except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
-         return  
-
+        import fcntl
+        lock_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        lock_file_path = os.path.join(lock_dir, 'casa_facile_web.lock')
+        try:
+            lock_file = open(lock_file_path, 'a')
+            fcntl.lockf(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            global _lock_file_handle
+            _lock_file_handle = lock_file
+            print("Avvio riuscito. Acquisito il lock (Linux/Unix).")
+            return
+        except BlockingIOError:
+            print("Un'altra istanza è già in esecuzione! (Linux/Unix)")
+            show_warning_popup()
+            sys.exit(1)
+        except Exception as e:
+            print(f"Errore critico durante la creazione del lock: {e}")
+            return
+        
 def show_warning_popup():
     splash = tk.Tk()
     splash.overrideredirect(True)
@@ -12824,7 +13211,6 @@ if __name__ == "__main__":
     """)
  
     Calendar, DateEntry = install_tkcalendar()
-    install_psutil()
     install_requests()
     install_win32_libraries()
     check_single_instance()

@@ -52,7 +52,8 @@ _"Casa Facile Pro" è un'applicazione desktop sviluppata in Python con Tkinter, 
   [https://www.python.org/downloads/](https://www.python.org/downloads/)
 
 - **Installazione Python su Windows:**
-- Puoi usare l'installer AUTOMATICO .Zip oppure Manualmente:
+- Puoi usare l'installer AUTOMATICO .Zip
+- oppure Manualmente:
 - Scaricare l’ultima versione di Python 3 (**assicurati che sia Python 3.8 o superiore**).  
   Scegli l’installer appropriato per il tuo sistema (es. "Windows installer (64-bit)").  
   Esegui il file `.exe` scaricato.  
@@ -64,17 +65,17 @@ _"Casa Facile Pro" è un'applicazione desktop sviluppata in Python con Tkinter, 
 
 - **Su Linux:**
   ```bash
-  sudo apt install tkcalendar python3-psutil
+  sudo apt install tkcalendar 
   ```
   In alternativa puoi usare i pacchetti python pip:
   ```bash
-  pip install tkcalendar psutil
+  pip install tkcalendar 
   ```
 
 - **Su Windows:**  
   Apri il terminale (Prompt dei comandi) e digita:
   ```bash
-  py -m pip install tkcalendar psutil win32print win32api win32con
+  py -m pip install tkcalendar win32print win32api win32con
   ```
 
 1. **Scarica il programma da GitHub:**  
